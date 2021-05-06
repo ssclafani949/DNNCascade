@@ -24,92 +24,27 @@ if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     print('Using UMD')
     repo = cy.selections.Repository(local_root='/data/i3store/users/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/ECAS_11_yrs')
+    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/DNNC_11yr')
     job_basedir = '/data/i3home/ssclafani/submitter_logs'
 else:
     repo = cy.selections.Repository(local_root='/data/user/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/ECAS_11_yrs')
+    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/DNNC_11_yrs')
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
 
-class Cascades(cy.selections.MESEDataSpecs.MESCDataSpec):
-    def __init__(self, mucut,ccut, angrescut, ethresh):
-        self.mucut = mucut
-        self.ccut = ccut
-        self.angrescut = angrescut
-        self.ethresh = ethresh 
-    def dataset_modifications(self, ds):
-         ds.data = ds.data._subsample(ds.data.mu_score <= self.mucut)
-         ds.sig = ds.sig._subsample(ds.sig.mu_score <= self.mucut)
-        
-         ds.data = ds.data._subsample(ds.data.c_score >= self.ccut)
-         ds.sig = ds.sig._subsample(ds.sig.c_score >= self.ccut)
-        
-         ds.data = ds.data._subsample(ds.data.energy > self.ethresh)
-         ds.sig = ds.sig._subsample(ds.sig.energy > self.ethresh)
-        
-         ds.data = ds.data._subsample(ds.data.sigma <= np.deg2rad( self.angrescut))
-         ds.sig = ds.sig._subsample(ds.sig.sigma <= np.deg2rad( self.angrescut ))
-        
-         d = ds.data
-         n = ds.sig            
-        
-         true = astropy.coordinates.SkyCoord(ds.sig.true_ra, ds.sig.true_dec, unit='rad')
-         reco = astropy.coordinates.SkyCoord(ds.sig.ra, ds.sig.dec, unit='rad')
-         sep = true.separation(reco)
-         dpsi = sep.rad
-         #dpsi =  astro.angular_distance(n.true_ra, n.true_dec, n.ra, n.dec) 
-         h = hl.hist((n.energy, dpsi / n.sigma), n.oneweight * n.true_energy**-2,
-                      bins=(14,40), range=((10**2.5,1e7), (10**-2, 10**2)), log=True).normalize([1])
-         hd = hl.hist((n.energy, dpsi / n.sigma), n.oneweight * n.true_energy**-2,
-                      bins=(14,10**3), range=((10**2.5,1e7), (10**-2, 10**2)), log=True)
-         h05 = hd.contain(1, .05)
-         h95 = hd.contain(1, .95)                                                                     
-         hmed = hd.median(1)
-         s = hmed.spline_fit(s=0, log=True)
-         n['uncorrected_sigma'] = np.copy(n.sigma)
-         n['sigma'] = n.uncorrected_sigma * s(np.clip(n.energy, *hmed.range[0])) / 1.1774
-         d['uncorrected_sigma'] = np.copy(d.sigma)
-         d['sigma'] = d.uncorrected_sigma * s(np.clip(d.energy, *hmed.range[0])) / 1.1774
-
-    # set livetime and data
-    _keep = _keep = 'mjd true_energy oneweight'.split ()                       
-    _keep32 = 'azimuth zenith ra dec energy sigma dist true_ra true_dec xdec xra mu_score c_score astro_bdt_01'.split () 
-    _livetime = 3307.053 * 86400
-    if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname: 
-        _path_data = '/data/i3store/users/ssclafani/data/ECAS/2011_2021_loose_exp.npy'
-        #BASELINE MC
-        _path_sig = '/data/i3store/users/ssclafani/data/ECAS/IC86_2016_MC_loose_bfrv1.npy'
-    else:
-        _path_data = '/data/user/ssclafani/data/cscd/final/2011_2021_loose_exp.npy'
-        #BASELINE MC
-        _path_sig = '/data/user/ssclafani/data/cscd/final/IC86_2016_MC_loose_bfrv1.npy'
-
-
-    _bins_sindec = np.linspace (-1, 1, 30+1)
-    _bins_logenergy = np.arange (2, 8.5, .25)
-    _kw_energy = dict(bins_sindec=np.linspace(-1,1, 31))
-
 class State (object):
-    def __init__ (self, ana_name, ana_dir, save,  base_dir, mucut, angrescut, ccut, ethresh, job_basedir):
+    def __init__ (self, ana_name, ana_dir, save, base_dir, job_basedir):
         self.ana_name, self.ana_dir, self.save, self.job_basedir = ana_name, ana_dir, save, job_basedir
         self.base_dir = base_dir
-        self.mucut = mucut
-        self.ccut = ccut
-        self.angrescut = angrescut
-        self.ethresh = ethresh
-
         self._ana = None
 
     @property
     def ana (self):
         if self._ana is None:
-            print(self.mucut, self.ccut, self.angrescut, self.ethresh)
             repo.clear_cache()
-            specs = [Cascades(self.mucut,self.ccut, self.angrescut, self.ethresh)] #cy.selections.MESEDataSpecs.mesc_7yr + cy.selections.PSDataSpecs.ps_10yr
+            specs = cy.selections.DNNC_11yr
             ana = cy.analysis.Analysis (repo, specs)#r=self.ana_dir)
-            #ana = cy.analysis.Analysis (repo, specs)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)
@@ -131,20 +66,16 @@ pass_state = click.make_pass_decorator (State)
 @click.option ('--save/--nosave', default=False)
 @click.option ('--base-dir', default=base_dir,
                type=click.Path (file_okay=False, writable=True))
-@click.option ('--mucut', default=1e-3)
-@click.option ('--angrescut', default=20)
-@click.option ('--ccut', default=0.3)
-@click.option ('--ethresh', default=500)
 @click.pass_context
-def cli (ctx, ana_name, ana_dir, save, base_dir, mucut, angrescut, ccut, ethresh, job_basedir):
-    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, mucut, angrescut, ccut, ethresh, job_basedir)
+def cli (ctx, ana_name, ana_dir, save, base_dir, job_basedir):
+    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, job_basedir)
 
 
 @cli.resultcallback ()
 def report_timing (result, **kw):
     exe_t1 = now ()
-    print ('c7: end at {} .'.format (exe_t1))
-    print ('c7: {} elapsed.'.format (exe_t1 - exe_t0))
+    print ('c11: end at {} .'.format (exe_t1))
+    print ('c11: {} elapsed.'.format (exe_t1 - exe_t0))
 
 @cli.command ()
 @pass_state
@@ -218,24 +149,127 @@ def do_all_sky_sens ( state, n_trials, gamma, n_sig, poisson, seed, cpus, loggin
 @click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--nn/--nonn', default=True)
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
-def do_ps_sens ( state, n_trials, poisson,gamma, dec_deg, seed, cpus, logging=True):
+def do_ps_sens ( 
+        state, n_trials, poisson,gamma, dec_deg, seed, 
+        cpus, model_name, additionalpdfs, nn, cutoff, logging=True):
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     ana = state.ana
-    print('Doing Trials with: ')
-    print('Muon BDT Cut : {}'.format(state.mucut))
-    print('Cascade BDT Cut :{}'.format(state.ccut))
-    print('Energy Threshold Cut :{}GeV'.format(state.ethresh))
-    print('AngRes Cut: {}deg'.format( state.angrescut ))
-    #dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir))
     sindec = np.sin(np.radians(dec_deg))
-    def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
-        src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        tr = cy.get_trial_runner(src=src, ana=ana, flux=cy.hyp.PowerLawFlux(gamma), mp_cpus=mp_cpu)
+    ratio_model_name = model_name
+    def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus, additionalpdfs=additionalpdfs):
+        def get_tr(sindec, gamma, cpus, additionalpdfs):
+            src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
+            cutoff_GeV = cutoff * 1e3
+            if nn:
+                from csky import models
+                import pickle
+                from csky.models import serialization
+                from csky.models.serialization import load_model
+                from csky import models
+                import tensorflow as tf
+                additionalpdfs = 'sigma' #need to enable sigma pdf if you use the NN
+
+                print('Using NN description of Signal and BG')
+                def get_model_name(**kwargs):
+                    model_name = 'model'
+                    for key in sorted(kwargs.keys()):
+                        value = kwargs[key]
+                        if isinstance(value, float):
+                            model_name += '_{}{:3.2e}'.format(key, value)
+                        else:
+                            model_name += '_{}{}'.format(key, value)
+                    return model_name
+                model_base_dir = '/data/user/mhuennefeld/analyses/DNNCascade/csky/models'
+                cut_settings = {
+                    'mucut' : 5e-3,
+                    'ccut' : 0.3,
+                    'ethresh' : 500,
+                    'angrescut' : float(np.deg2rad(30)),
+                    'angfloor' : float(np.deg2rad(0.5))
+                    }
+                model_dir = '{}/sigma_pdf_test/{}'.format(
+                    model_base_dir, get_model_name(**cut_settings))    
+
+                observables = ['log10energy']
+                conditionals = ['sindec', 'sigma', 'gamma']
+                observables = sorted(observables)
+                conditionals = sorted(conditionals)
+                obs_str = observables[0].replace('src->', 'src')        
+                for obs in observables[1:]:
+                    obs_str += '_' + obs.replace('src->', 'src')
+
+                conditionals = sorted(conditionals)
+                if len(conditionals) > 0:
+                    cond_str = conditionals[0].replace('src->', 'src')
+                else:
+                    cond_str = 'None'
+                for cond in conditionals[1:]:
+                    cond_str += '_' + cond.replace('src->', 'src')
+
+                ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
+                         model_dir, obs_str, cond_str, ratio_model_name)
+                ratio_model, info  = load_model(ratio_model_path)  
+                print('features:', ratio_model.features)
+                print('parameters:', ratio_model.parameters)
+                print('observables:', ratio_model.observables)
+                print('conditionals:', ratio_model.conditionals)
+
+                #Failsafe Checks!!
+                trained_cut_settings = info['info']['cut_settings']
+                if trained_cut_settings['angrescut'] != np.deg2rad(30):
+                    print(trained_cut_settings['angrescut'])
+                    raise Exception('Angres cut doesnt Match!!')
+                if trained_cut_settings['ccut'] != 0.3:
+                    print(trained_cut_settings['ccut'])
+                    raise Exception('CascadeBDT cut doesnt Match!!')
+                if trained_cut_settings['mucut'] != 5e-3:
+                    print(trained_cut_settings['mucut'])                               
+                    raise Exception('MuonBDT cut doesnt Match!!')
+                if trained_cut_settings['ethresh'] != 500:
+                    print(trained_cut_settings['ethresh'])
+                    raise Exception('Ethresh cut doesnt Match!!')
+
+
+                ratio_model, info  = load_model(ratio_model_path)
+                print('features:', ratio_model.features)
+                print('parameters:', ratio_model.parameters)
+                print('observables:', ratio_model.observables)
+                print('conditionals:', ratio_model.conditionals) 
+                conf =  {
+                    'src' : src,
+                    cy.pdf.GenericPDFRatioModel: dict(
+                                func = ratio_model,
+                                features = ratio_model.features,
+                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
+                            ),
+                    'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                    'update_bg': True,
+                    'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
+                    }   
+            else:
+                conf = {
+                    'src' : src,
+                    'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                    'update_bg': True, 
+                    }
+            if additionalpdfs == 'sigma':
+                print('Space * E * Sigma')   
+                conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
+                            features=['sindec', 'sigma'],
+                            normalize_axes = ([1])) 
+            tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+            return tr, src
+        tr, src = get_tr(sindec, gamma, cpus, additionalpdfs)
         print('Performing BG Trails at RA: {}, DEC: {}'.format(src.ra_deg, src.dec_deg))
-        bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=mp_cpu))
+        bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=cpus))
         sens = tr.find_n_sig(
             # ts, threshold
             bg.median(),
@@ -260,198 +294,18 @@ def do_ps_sens ( state, n_trials, poisson,gamma, dec_deg, seed, cpus, logging=Tr
     sens = get_PS_sens (sindec, gamma=gamma, n_trials=n_trials) 
     
     sens_flux = np.array(sens['flux'])
-   
-    out_dir = cy.utils.ensure_dir('{}/E{}_redo/mucut/{:.10f}/ccut/{}/angrescut/{}/ethresh/{}/dec/{:+08.3f}/'.format(
-        state.base_dir, int(gamma*100), state.mucut, state.ccut, state.angrescut, state.ethresh, dec_deg))
+    if nn:
+        out_dir = cy.utils.ensure_dir('{}/E{}/NN/dec/{:+08.3f}/'.format(
+            state.base_dir, int(gamma*100),   dec_deg))
+    else:
+        out_dir = cy.utils.ensure_dir('{}/E{}/NoNN/dec/{:+08.3f}/'.format(
+            state.base_dir, int(gamma*100),  dec_deg))
+
     out_file = out_dir + 'sens.npy'
     print(sens_flux)
     np.save(out_file, sens_flux)
     t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-
-
-@cli.command()
-@click.option('--n-trials', default=1000, type=int)
-@click.option ('--poisson/--nopoisson', default=True)
-@click.option ('--sigmaPDF/--nosigmaPDF', default=False)
-@click.option ('--gamma', default=2.0, type=float)
-@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
-@click.option ('--seed', default=None, type=int)
-@click.option ('--cpus', default=1, type=int)
-@pass_state
-def get_bias_and_sens ( state, n_trials, poisson, sigmaPDF, gamma, dec_deg, seed, cpus, logging=True):
-    if seed is None:
-        seed = int (time.time () % 2**32)
-    random = cy.utils.get_random (seed) 
-    ana = state.ana
-    print('Doing Trials with: ')
-    print('Muon BDT Cut : {}'.format(state.mucut))
-    print('Cascade BDT Cut :{}'.format(state.ccut))
-    print('Energy Threshold Cut :{}GeV'.format(state.ethresh))
-    print('AngRes Cut: {}deg'.format( state.angrescut ))
-    #dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir))
-    sindec = np.sin(np.radians(dec_deg))
-    def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus, sigmaPDF=sigmaPFD):
-        src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        if sigmaPDF:
-            conf = {
-                #'fitter_args' : {'gamma' : gamma}
-                'ana' : ana,
-                'src' : src,
-                #'cut_n_sigma' : 5,
-                #'sindec_bandwidth' : np.radians(5),
-                'flux' : cy.hyp.PowerLawFlux(gamma),
-                'update_bg' : False, 
-                cy.pdf.SigmaPDFRatioModel : dict(
-                    hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0,np.pi, 12))), 
-                    features=['sindec', 'sigma'],
-                    normalize_axes = ([1])),     
-            }
-            tr = cy.get_trial_runner(conf=conf, mp_cpus=mp_cpu)
-        else:
-            tr = cy.get_trial_runner(src=src, ana=ana, flux=cy.hyp.PowerLawFlux(gamma), mp_cpus=mp_cpu)
-        print('Performing BG Trails at RA: {}, DEC: {}'.format(src.ra_deg, src.dec_deg))
-        bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=mp_cpu))
-        sens = tr.find_n_sig(
-            # ts, threshold
-            bg.median(),
-            # beta, fraction of trials which should exceed the threshold
-            0.9,
-            # n_inj step size for initial scan
-            n_sig_step=6,
-            # this many trials at a time
-            batch_size=2500,
-            # tolerance, as estimated relative error
-            tol=.025,
-            first_batch_size = 250,
-            mp_cpus=mp_cpu
-        )
-        sens['flux'] = tr.to_E2dNdE (sens['n_sig'], E0=100, unit=1e3)
-        print(sens['flux'])
-        return sens
-
-    t0 = now ()
-    print ('Beginning calculation at {} ...'.format (t0))
-    flush ()
-    sens = get_PS_sens (sindec, gamma=gamma, n_trials=n_trials, sigmaPDF=sigmaPDF) 
-    
-    sens_flux = np.array(sens['flux'])
-   
-    out_dir = cy.utils.ensure_dir('{}/E{}/mucut/{:.10f}/ccut/{}/angrescut/{}/ethresh/{}/dec/{:+08.3f}/'.format(
-        state.base_dir, int(gamma*100), state.mucut, state.ccut, state.angrescut, state.ethresh, dec_deg))
-    out_file = out_dir + 'sens.npy'
-    print(sens_flux)
-    np.save(out_file, sens_flux)
-    t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-
-@cli.command ()
-@click.option ('--n-trials', default=10000, type=int)
-@click.option ('--gamma', default=2, type=float)
-@click.option ('--dry/--nodry', default=False)
-@click.option ('--seed', default=0)
-@pass_state
-def submit_grid_search_sens (
-        state, n_trials,  gamma, dry, seed):
-    ana_name = state.ana_name
-    T = time.time ()
-    job_basedir = job_basedir 
-    job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
-        job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
-    commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-
-
-    mucuts = np.logspace(-4, -1, 31)
-    ccuts = [0, 0.1, 0.3]
-    ethreshes = [300,500, 700]
-    angrescuts = [30, 80]
-    for mucut in mucuts:
-        for ccut in ccuts:
-            for angrescut in angrescuts:
-                for ethresh in ethreshes:
-                    s =  seed
-                    fmt = '{} --mucut {} --angrescut {} --ccut {} --ethresh {} do-all-sky-sens  --n-trials {}' \
-                                        ' --gamma={:.3f}' \
-                                        ' --seed={}'
-                    command = fmt.format ( this_script, mucut, angrescut, ccut, ethresh,  n_trials,
-                                          gamma, s)
-                    #command = fmt.format (env_shell, this_script, mucut, ccut, ethresh,  n_trials,
-                    #                      gamma, s)
-                    fmt = 'csky__trials_{:07d}_mc_{:03f}_cc_{:03f}_arc_{:03f}_ethresh_{:03f}_' \
-                            'gamma_{:.3f}_seed_{:04d}'
-                    label = fmt.format (n_trials, mucut, ccut, angrescut, ethresh, gamma, s)
-                    commands.append (command)
-                    labels.append (label)
-    #mucuts = np.logspace(-4, -1, 31)
-    #ccuts = [0, 0.1, 0.3]
-    #ethreshes = [300,500, 700]
-    #angrescuts = [30, 80]
-    sub.dry = dry
-    if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
-    else:
-        sub.submit_npx4 (commands, labels)
-
-
-@cli.command ()
-@click.option ('--n-trials', default=10000, type=int)
-@click.option ('--gamma', default=2, type=float)
-@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
-@click.option ('--dry/--nodry', default=False)
-@click.option ('--seed', default=0)
-@pass_state
-def submit_do_ps_sens (
-        state, n_trials,  gamma,dec_deg,  dry, seed):
-    ana_name = state.ana_name
-    T = time.time ()
-    job_basedir = state.job_basedir 
-    job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
-        job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
-    commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-
-
-    #mucuts = [0.001]
-    #ccuts = [0.3]
-    #ethreshes = [500]
-    #angrescuts = [30]
-    #dec_degs = [-30]
-    
-
-    mucuts = np.logspace(-4, -1, 21)
-    #mucuts = np.logspace(-3.1, -1.9, 9)
-    ccuts = [0.0,  0.1, 0.3, 0.9]
-    ethreshes = [500, 1000]
-    angrescuts = [30]
-    dec_degs = np.arange(-88, 89, 4)  
-    for mucut in mucuts:
-        for ccut in ccuts:
-            for angrescut in angrescuts:
-                for ethresh in ethreshes:
-                    for dec_deg in dec_degs:
-                        s =  seed
-                        fmt = '{} --mucut {} --angrescut {} --ccut {} --ethresh {} do-ps-sens  --n-trials {}' \
-                                            ' --gamma={:.3f} --dec_deg {}' \
-                                            ' --seed={}'
-                        command = fmt.format ( this_script, mucut, angrescut, ccut, ethresh,  n_trials,
-                                              gamma, dec_deg, s)
-                        fmt = 'csky_sens_{:07d}_mc_{:03f}_cc_{:03f}_arc_{:03f}_ethresh_{:03f}_' \
-                                'gamma_{:.3f}_decdeg_{:04d}_seed_{:04d}'
-                        label = fmt.format (n_trials, mucut, ccut, angrescut, ethresh, gamma, dec_deg, s)
-                        commands.append (command)
-                        labels.append (label)
-    sub.dry = dry
-    print(hostname)
-    if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
-    else:
-        sub.submit_npx4 (commands, labels)
-
+    print ('Finished sens at {} ...'.format (t1))
 
 @cli.command()
 @click.option('--n-trials', default=1000, type=int)
@@ -460,25 +314,134 @@ def submit_do_ps_sens (
 @click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
 @click.option ('--gamma', default=2.0, type=float)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--nn/--nonn', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
 @pass_state
-def do_ps_trials ( state, dec_deg, n_trials, gamma, cutoff, n_sig, poisson, seed, cpus, logging=True):
+def do_ps_trials ( 
+        state, dec_deg, n_trials, gamma, cutoff, 
+        model_name, additionalpdfs, nn,  n_sig, 
+        poisson, seed, cpus, logging=True):
+
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     print(seed)
-    print('Doing Trials with: ')
-    print('Muon BDT Cut : {}'.format(state.mucut))
-    print('Cascade BDT Cut :{}'.format(state.ccut))
-    print('Energy Threshold Cut :{}GeV'.format(state.ethresh))
-    print('AngRes Cut: {}deg'.format( state.angrescut ))
     dec = np.radians(dec_deg)
+    sindec = np.sin(dec)
     ana = state.ana
+    ratio_model_name = model_name
+    src = cy.utils.Sources(dec=dec, ra=0)
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
-    tr = cy.get_trial_runner(src = cy.utils.Sources(dec=dec, ra=0) , ana=ana,
-        flux=cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV), mp_cpus=cpus, dir=dir)
+    def get_tr(sindec, gamma, cpus, additionalpdfs):
+        src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
+        cutoff_GeV = cutoff * 1e3
+        if nn:
+            from csky import models
+            import pickle
+            from csky.models import serialization
+            from csky.models.serialization import load_model
+            from csky import models
+            import tensorflow as tf
+            print('Using NN description of Signal and BG')
+            
+            ###need to add the sigma PDF
+            additionalpdfs = 'sigma'
+
+            def get_model_name(**kwargs):
+                model_name = 'model'
+                for key in sorted(kwargs.keys()):
+                    value = kwargs[key]
+                    if isinstance(value, float):
+                        model_name += '_{}{:3.2e}'.format(key, value)
+                    else:
+                        model_name += '_{}{}'.format(key, value)
+                return model_name
+            model_base_dir = '/data/user/mhuennefeld/analyses/DNNCascade/csky/models'
+            cut_settings = {
+                'mucut' : 5e-3,
+                'ccut' : 0.3,
+                'ethresh' : 500,
+                'angrescut' : float(np.deg2rad(30)),
+                'angfloor' : float(np.deg2rad(0.5))
+                }
+            model_dir = '{}/sigma_pdf_test/{}'.format(
+                model_base_dir, get_model_name(**cut_settings))    
+
+            observables = ['log10energy']
+            conditionals = ['sindec', 'sigma', 'gamma']
+            observables = sorted(observables)
+            conditionals = sorted(conditionals)
+            obs_str = observables[0].replace('src->', 'src')        
+            for obs in observables[1:]:
+                obs_str += '_' + obs.replace('src->', 'src')
+
+            conditionals = sorted(conditionals)
+            if len(conditionals) > 0:
+                cond_str = conditionals[0].replace('src->', 'src')
+            else:
+                cond_str = 'None'
+            for cond in conditionals[1:]:
+                cond_str += '_' + cond.replace('src->', 'src')
+
+            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
+                     model_dir, obs_str, cond_str, ratio_model_name)
+            ratio_model, info  = load_model(ratio_model_path)  
+            print('features:', ratio_model.features)
+            print('parameters:', ratio_model.parameters)
+            print('observables:', ratio_model.observables)
+            print('conditionals:', ratio_model.conditionals)
+
+            #Failsafe Checks!!
+            trained_cut_settings = info['info']['cut_settings']
+            if trained_cut_settings['angrescut'] != np.deg2rad(30):
+                print(trained_cut_settings['angrescut'])
+                raise Exception('Angres cut doesnt Match!!')
+            if trained_cut_settings['ccut'] != 0.3:
+                print(trained_cut_settings['ccut'])
+                raise Exception('CascadeBDT cut doesnt Match!!')
+            if trained_cut_settings['mucut'] != 5e-3:
+                print(trained_cut_settings['mucut'])                               
+                raise Exception('MuonBDT cut doesnt Match!!')
+            if trained_cut_settings['ethresh'] != 500:
+                print(trained_cut_settings['ethresh'])
+                raise Exception('Ethresh cut doesnt Match!!')
+
+
+            ratio_model, info  = load_model(ratio_model_path)
+            print('features:', ratio_model.features)
+            print('parameters:', ratio_model.parameters)
+            print('observables:', ratio_model.observables)
+            print('conditionals:', ratio_model.conditionals) 
+            conf =  {
+                'src' : src,
+                cy.pdf.GenericPDFRatioModel: dict(
+                            func = ratio_model,
+                            features = ratio_model.features,
+                            fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
+                        ),
+                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                'update_bg': True,
+                'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
+                }   
+        else:
+            conf = {
+                'src' : src,
+                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                'update_bg': True, 
+                }
+        if additionalpdfs == 'sigma':
+            print('Space * E * Sigma')   
+            conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                        hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
+                        features=['sindec', 'sigma'],
+                        normalize_axes = ([1])) 
+        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+        return tr, src
+    tr , src = get_tr(sindec, gamma, cpus, additionalpdfs)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -502,59 +465,6 @@ def do_ps_trials ( state, dec_deg, n_trials, gamma, cutoff, n_sig, poisson, seed
         out_dir, n_trials, seed)
     print ('-> {}'.format (out_file))
     np.save (out_file, trials.as_array)
-
-
-
-@cli.command ()
-@click.option ('--n-trials', default=10000, type=int)
-@click.option ('--n-jobs', default=10, type=int)
-@click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
-@click.option ('--gamma', default=2, type=float)
-@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
-@click.option ('--poisson/--nopoisson', default=True)
-@click.option ('--dec', 'dec_degs', multiple=True, type=float, default=())
-@click.option ('--dry/--nodry', default=False)
-@click.option ('--seed', default=0)
-@pass_state
-def submit_do_ps_trials (
-        state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson, dec_degs, dry, seed):
-    ana_name = state.ana_name
-    T = time.time ()
-    poisson_str = 'poisson' if poisson else 'nopoisson'
-    job_basedir = state.job_basedir 
-    poisson_str = 'poisson' if poisson else 'nopoisson'
-    job_dir = '{}/{}/ps_trials/T_{:17.6f}'.format (
-        job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
-    commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-    dec_degs = dec_degs or np.r_[-89:+89.01:2]
-    mucut = 1e-3
-    angrescut = 20
-    ethresh = 500
-    ccut = 0.3
-    for dec_deg in dec_degs:
-        for n_sig in n_sigs:
-            for i in range (n_jobs):
-                s = i + seed
-                fmt = ' {} --mucut {} --angrescut {} --ethresh {} --ccut {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
-                        ' --n-sig={} --gamma={:.3f} --cutoff={}' \
-                        ' --{} --seed={}'
-  
-                command = fmt.format (this_script, mucut,  angrescut, ethresh, dec_deg, n_trials,
-                                      n_sig, gamma, cutoff, poisson_str, s)
-                fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
-                        'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}'
-                label = fmt.format (dec_deg, n_trials, n_sig, gamma,
-                                    cutoff, poisson_str, s)
-                commands.append (command)
-                labels.append (label)
-    sub.dry = dry
-    if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
-    else:
-        sub.submit_npx4 (commands, labels)
 
 
 @cli.command ()
@@ -607,8 +517,6 @@ def collect_ps_bg (state, fit, hist, dist, n):
     print ('->', outfile)
     with open (outfile, 'wb') as f:
         pickle.dump (bg, f, -1)
-
-
 
 @cli.command ()
 @pass_state
@@ -746,99 +654,6 @@ def do_gp_sens ( state, temp, n_trials, seed, cpus, logging=True):
     np.save(out_file, template_sens)
     print ('-> {}'.format (out_file))                                                          
 
-@cli.command ()
-@click.option ('--n-trials', default=10000, type=int)
-@click.option ('--dry/--nodry', default=False)
-@click.option ('--seed', default=0)
-@click.option ('--template', default='kra5')
-@pass_state
-def submit_gp_sens (
-        state, n_trials, dry, seed, template):
-    ana_name = state.ana_name
-    T = time.time ()
-    job_basedir = state.job_basedir #'/scratch/ssclafani/' 
-    job_dir = '{}/{}/ECAS_gp/T_{:17.6f}'.format (
-        job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
-    commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-    
-    mucuts = np.logspace(-4, -1, 21)
-    ccuts = [0.3]
-    ethreshes = [300,500,1000]
-    angrescuts = [30, 80]
-    for mucut in mucuts:
-        for ccut in ccuts:
-            for angrescut in angrescuts:
-                for ethresh in ethreshes:
-                    s =  seed
-                    fmt = '{} --mucut {} --angrescut {} --ccut {} --ethresh {} do-gp-sens  --n-trials {}' \
-                                        ' --seed={} {}'                                                    
-                    command = fmt.format ( this_script, mucut, angrescut, ccut, ethresh,  n_trials,
-                                         s, template)
-                    fmt = 'csky__trials_{:07d}_mc_{:03f}_ccut_{:03f}_arc_{:03f}_ethresh_{:03f}_' \
-                            'gp_{}_seed_{:04d}'
-                    label = fmt.format (n_trials, mucut, ccut, angrescut, ethresh, template,  s)
-                    commands.append (command)
-                    labels.append (label)
-    sub.dry = dry
-    print(hostname)
-    if 'condor00' in hostname:
-        print('submitting from condor00')
-        sub.submit_condor00 (commands, labels)
-    else:
-        sub.submit_npx4 (commands, labels)
-
-
-@cli.command ()
-@click.argument ('temp')
-@click.option ('--n-trials', default=10000, type=int)
-@click.option ('--n-jobs', default=10, type=int)
-@click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
-@click.option ('--poisson/--nopoisson', default=True)
-@click.option ('--dry/--nodry', default=False)
-@click.option ('-b', '--blacklist', multiple=True)
-@click.option ('--seed', default=0, type=int)
-@pass_state
-def submit_do_gp_trials (
-        state, temp, n_trials, n_jobs, n_sigs, poisson, dry, blacklist, seed):
-    
-    #example command using click python comb_sens.py submit_do_gp_trials --n-sig=0 --n-jobs=1 --n-trials=1000 pi0
-    ana_name = state.ana_name
-    T = time.time ()
-    job_basedir = state.job_basedir
-    poisson_str = 'poisson' if poisson else 'nopoisson'
-    job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
-        job_basedir, ana_name, temp, T)
-    sub = Submitter (job_dir=job_dir, memory=10)#, max_jobs=400)
-    commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-    env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
-    for n_sig in n_sigs:
-        for i in xrange (n_jobs):
-            s = i + seed
-            fmt = '{} {} {} do_gp_trials --n-trials={}' \
-                    ' --n-sig={}' \
-                    ' --{} --seed={} {}'
-            command = fmt.format (env_shell, this_script, state.state_args, n_trials,
-                                  n_sig, poisson_str,  s, temp)
-            fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
-                    '{}__{}__seed_{:04d}'
-            label = fmt.format (n_trials,  n_sig, temp, poisson_str, s)
-            commands.append (command)
-            labels.append (label)
-    #print(commands)
-    #sub.dry = dry
-    if 'condor00' in hostname:
-        print('submitting from condor00')
-        sub.submit_condor00 (commands, labels)
-    else:
-        sub.submit_npx4 (commands, labels)
-
-    sub.submit_npx4 (
-        commands, labels)
-        #blacklist=cg.blacklist (blacklist))
 
 @cli.command ()
 @pass_state
