@@ -14,10 +14,6 @@ import matplotlib.pyplot as plt
 import click, sys, os, time
 flush = sys.stdout.flush
 
-global mucut
-global ccut
-global ethresh 
-
 hostname = socket.gethostname()
 print('Hostname: {}'.format(hostname))
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
@@ -33,83 +29,17 @@ else:
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
 
-class Cascades(cy.selections.MESEDataSpecs.MESCDataSpec):
-    def __init__(self, mucut,ccut, angrescut, ethresh):
-        self.mucut = mucut
-        self.ccut = ccut
-        self.angrescut = angrescut
-        self.ethresh = ethresh 
-    def dataset_modifications(self, ds):
-         ds.data = ds.data._subsample(ds.data.mu_score <= self.mucut)
-         ds.sig = ds.sig._subsample(ds.sig.mu_score <= self.mucut)
-        
-         ds.data = ds.data._subsample(ds.data.c_score >= self.ccut)
-         ds.sig = ds.sig._subsample(ds.sig.c_score >= self.ccut)
-        
-         ds.data = ds.data._subsample(ds.data.energy > self.ethresh)
-         ds.sig = ds.sig._subsample(ds.sig.energy > self.ethresh)
-        
-         ds.data = ds.data._subsample(ds.data.sigma <= np.deg2rad( self.angrescut))
-         ds.sig = ds.sig._subsample(ds.sig.sigma <= np.deg2rad( self.angrescut ))
-        
-         d = ds.data
-         n = ds.sig            
-        
-         true = astropy.coordinates.SkyCoord(ds.sig.true_ra, ds.sig.true_dec, unit='rad')
-         reco = astropy.coordinates.SkyCoord(ds.sig.ra, ds.sig.dec, unit='rad')
-         sep = true.separation(reco)
-         dpsi = sep.rad
-         #dpsi =  astro.angular_distance(n.true_ra, n.true_dec, n.ra, n.dec) 
-         h = hl.hist((n.energy, dpsi / n.sigma), n.oneweight * n.true_energy**-2,
-                      bins=(14,40), range=((10**2.5,1e7), (10**-2, 10**2)), log=True).normalize([1])
-         hd = hl.hist((n.energy, dpsi / n.sigma), n.oneweight * n.true_energy**-2,
-                      bins=(14,10**3), range=((10**2.5,1e7), (10**-2, 10**2)), log=True)
-         h05 = hd.contain(1, .05)
-         h95 = hd.contain(1, .95)                                                                     
-         hmed = hd.median(1)
-         s = hmed.spline_fit(s=0, log=True)
-         n['uncorrected_sigma'] = np.copy(n.sigma)
-         n['sigma'] = n.uncorrected_sigma * s(np.clip(n.energy, *hmed.range[0])) / 1.1774
-         d['uncorrected_sigma'] = np.copy(d.sigma)
-         d['sigma'] = d.uncorrected_sigma * s(np.clip(d.energy, *hmed.range[0])) / 1.1774
-
-    # set livetime and data
-    _keep = _keep = 'mjd true_energy oneweight'.split ()                       
-    _keep32 = 'azimuth zenith ra dec energy sigma dist true_ra true_dec xdec xra mu_score c_score astro_bdt_01'.split () 
-    _livetime = 3307.053 * 86400
-    if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname: 
-        _path_data = '/data/i3store/users/ssclafani/data/ECAS/2011_2021_loose_exp.npy'
-        #BASELINE MC
-        _path_sig = '/data/i3store/users/ssclafani/data/ECAS/IC86_2016_MC_loose_bfrv1.npy'
-    else:
-        _path_data = '/data/user/ssclafani/data/cscd/final/2011_2021_loose_exp.npy'
-        #BASELINE MC
-        _path_sig = '/data/user/ssclafani/data/cscd/final/IC86_2016_MC_loose_bfrv1.npy'
-
-
-    _bins_sindec = np.linspace (-1, 1, 30+1)
-    _bins_logenergy = np.arange (2, 8.5, .25)
-    _kw_energy = dict(bins_sindec=np.linspace(-1,1, 31))
-
 class State (object):
-    def __init__ (self, ana_name, ana_dir, save,  base_dir, mucut, angrescut, ccut, ethresh, job_basedir):
+    def __init__ (self, ana_name, ana_dir, save,  base_dir,  job_basedir):
         self.ana_name, self.ana_dir, self.save, self.job_basedir = ana_name, ana_dir, save, job_basedir
         self.base_dir = base_dir
-        self.mucut = mucut
-        self.ccut = ccut
-        self.angrescut = angrescut
-        self.ethresh = ethresh
-
         self._ana = None
 
     @property
     def ana (self):
         if self._ana is None:
-            print(self.mucut, self.ccut, self.angrescut, self.ethresh)
-            repo.clear_cache()
-            specs = [Cascades(self.mucut,self.ccut, self.angrescut, self.ethresh)] #cy.selections.MESEDataSpecs.mesc_7yr + cy.selections.PSDataSpecs.ps_10yr
+            specs = cy.selections.DNNCasacdeDataSpecs.DNNC_11yr
             ana = cy.analysis.Analysis (repo, specs)#r=self.ana_dir)
-            #ana = cy.analysis.Analysis (repo, specs)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)
@@ -131,13 +61,9 @@ pass_state = click.make_pass_decorator (State)
 @click.option ('--save/--nosave', default=False)
 @click.option ('--base-dir', default=base_dir,
                type=click.Path (file_okay=False, writable=True))
-@click.option ('--mucut', default=1e-3)
-@click.option ('--angrescut', default=20)
-@click.option ('--ccut', default=0.3)
-@click.option ('--ethresh', default=500)
 @click.pass_context
-def cli (ctx, ana_name, ana_dir, save, base_dir, mucut, angrescut, ccut, ethresh, job_basedir):
-    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, mucut, angrescut, ccut, ethresh, job_basedir)
+def cli (ctx, ana_name, ana_dir, save, base_dir, job_basedir):
+    ctx.obj = State.state = State (ana_name, ana_dir, save, base_dir, job_basedir)
 
 
 @cli.resultcallback ()
@@ -160,10 +86,14 @@ def setup_ana (state):
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--dec', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--nn/--nonn', default=True)
 @click.option ('--seed', default=0)
 @pass_state
 def submit_do_ps_trials (
-        state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson, dec_degs, dry, seed):
+        state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson, dec_degs, dry, 
+        model_name, additionalpdfs, nn, seed):
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
@@ -172,36 +102,121 @@ def submit_do_ps_trials (
     job_dir = '{}/{}/ps_trials/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
-    this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
     dec_degs = dec_degs or np.r_[-89:+89.01:2]
-    mucut = 1e-3
-    angrescut = 20
-    ethresh = 500
-    ccut = 0.3
     for dec_deg in dec_degs:
         for n_sig in n_sigs:
             for i in range (n_jobs):
                 s = i + seed
-                fmt = ' {} --mucut {} --angrescut {} --ethresh {} --ccut {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
-                        ' --n-sig={} --gamma={:.3f} --cutoff={}' \
-                        ' --{} --seed={}'
-  
-                command = fmt.format (trial_script, mucut,  angrescut, ethresh, dec_deg, n_trials,
-                                      n_sig, gamma, cutoff, poisson_str, s)
-                fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
-                        'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}'
-                label = fmt.format (dec_deg, n_trials, n_sig, gamma,
-                                    cutoff, poisson_str, s)
+                if nn:
+                    fmt = ' {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
+                            ' --n-sig={} --gamma={:.3f} --cutoff={}' \
+                            ' --{} --seed={} --model_name {} --nn '
+      
+                    command = fmt.format (trial_script,  dec_deg, n_trials,
+                                          n_sig, gamma, cutoff, poisson_str, s, model_name)
+                    fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
+                            'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}_nn_{}'
+                    label = fmt.format (dec_deg, n_trials, n_sig, gamma,
+                                        cutoff, poisson_str, s, model_name)
+                else:
+                    fmt = ' {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
+                            ' --n-sig={} --gamma={:.3f} --cutoff={}' \
+                            ' --{} --seed={} --model_name {} --nnonn '
+      
+                    command = fmt.format (trial_script,  dec_deg, n_trials,
+                                          n_sig, gamma, cutoff, poisson_str, s, model_name)
+                    fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
+                            'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}_nn_{}'
+                    label = fmt.format (dec_deg, n_trials, n_sig, gamma,
+                                        cutoff, poisson_str, s, model_name)
+
                 commands.append (command)
                 labels.append (label)
     sub.dry = dry
-    if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
+    print(hostname)
+    if nn:
+        if 'condor00' in hostname:
+            sub.submit_condor00 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
+        else:
+            sub.submit_npx4 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
     else:
-        sub.submit_npx4 (commands, labels)
+        if 'condor00' in hostname:
+            sub.submit_condor00 (commands, labels)
+        else:
+            sub.submit_npx4 (commands, labels)
+
+@cli.command ()
+@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--gamma', default=2, type=float)
+@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
+@click.option ('--dry/--nodry', default=False)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--seed', default=0)
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--nn/--nonn', default=True)
+@pass_state                                                                                                               
+def submit_do_ps_sens (
+        state, n_trials,  gamma,dec_deg,  dry, additionalpdfs, seed, model_name, nn):
+    ana_name = state.ana_name
+    T = time.time ()
+    job_basedir = state.job_basedir 
+    job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
+        job_basedir, ana_name,  T)
+    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
+    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    commands, labels = [], []
+    this_script = os.path.abspath (__file__)
+    trial_script = os.path.abspath('trials.py')
+    sindecs = np.arange(-1,1.01,.1)
+    sindecs[0] = -.99
+    sindecs[-1] = .99
+    dec_degs = np.degrees(np.arcsin(sindecs))
+    additionalpdfs = ['None', 'sigma']
+    model_names = ['small_scipy1d']    
+    for dec_deg in dec_degs:
+        for addpdf in additionalpdfs:                                                                                
+            for model_name in model_names:
+                s =  seed
+                if nn:
+                    fmt = '{} do-ps-sens  --n-trials {}' \
+                                        ' --gamma={:.3f} --dec_deg {} --model_name {}'  \
+                                        ' --seed={} --additionalpdfs={} --nn '
+                    command = fmt.format ( trial_script,  n_trials,
+                                          gamma, dec_deg, model_name, s, addpdf)
+                    fmt = 'csky_sens_{:07d}_' \
+                            'gamma_{:.3f}_decdeg_{:04f}_seed_{:04d}_{}nn_{}'
+                    label = fmt.format (
+                        n_trials, mucut, ccut, angrescut, 
+                        ethresh, gamma, dec_deg, s, addpdf, 
+                        model_name)
+                else:
+                    fmt = '{} do-ps-sens  --n-trials {}' \
+                                        ' --gamma={:.3f} --dec_deg {}' \
+                                        ' --seed={} --additionalpdfs={} --nonn'
+                    command = fmt.format ( trial_script,  n_trials,
+                                          gamma, dec_deg, s, addpdf)
+                    fmt = 'csky_sens_{:07d}_' \
+                            'gamma_{:.3f}_decdeg_{:04f}_seed_{:04d}_{}'
+                    label = fmt.format (
+                            n_trials, 
+                            gamma, dec_deg, s,
+                            addpdf)
+                commands.append (command)
+                labels.append (label)
+    sub.dry = dry
+    print(hostname)
+    if nn:
+        if 'condor00' in hostname:
+            sub.submit_condor00 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
+        else:
+            sub.submit_npx4 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
+    else:
+        if 'condor00' in hostname:
+            sub.submit_condor00 (commands, labels)
+        else:
+            sub.submit_npx4 (commands, labels)
 
 @cli.command ()
 @click.argument ('temp')
@@ -209,8 +224,10 @@ def submit_do_ps_trials (
 @click.option ('--n-jobs', default=10, type=int)
 @click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
 @click.option ('--poisson/--nopoisson', default=True)
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--nn/--nonn', default=True)
 @click.option ('--dry/--nodry', default=False)
-@click.option ('-b', '--blacklist', multiple=True)
 @click.option ('--seed', default=0, type=int)
 @pass_state
 def submit_do_gp_trials (
@@ -230,15 +247,31 @@ def submit_do_gp_trials (
     env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     for n_sig in n_sigs:
         for i in xrange (n_jobs):
-            s = i + seed
-            fmt = '{} {} {} do_gp_trials --n-trials={}' \
-                    ' --n-sig={}' \
-                    ' --{} --seed={} {}'
-            command = fmt.format (trial_script, state.state_args, n_trials,
-                                  n_sig, poisson_str,  s, temp)
-            fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
-                    '{}__{}__seed_{:04d}'
-            label = fmt.format (n_trials,  n_sig, temp, poisson_str, s)
+            if nn:
+                s = i + seed
+                fmt = '{} {} {} do_gp_trials --n-trials={}' \
+                        ' --n-sig={} --additionalpdfs {} --model_name {}' \
+                        ' --{} --seed={} --nn {}'
+                command = fmt.format (trial_script, state.state_args, n_trials,
+                                      n_sig, additionalpdfs, model_name, poisson_str,  s, temp)
+                fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
+                        '{}__{}__seed_{:04d}_nn_{}_{}'
+                label = fmt.format (
+                        n_trials,  n_sig, temp, poisson_str, 
+                        s, model_name, additionalpdfs)
+            else:
+                s = i + seed
+                fmt = '{} {} {} do_gp_trials --n-trials={}' \
+                        ' --n-sig={} --additionalpdfs {}' \
+                        ' --{} --seed={} --nonn {}'
+                command = fmt.format (trial_script, state.state_args, n_trials,
+                                      n_sig, additionalpdfs, poisson_str,  s, temp)
+                fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
+                        '{}__{}__seed_{:04d}__{}'
+                label = fmt.format (
+                        n_trials,  n_sig, temp, poisson_str, 
+                        s,  additionalpdfs)
+
             commands.append (command)
             labels.append (label)
     #print(commands)
@@ -251,7 +284,66 @@ def submit_do_gp_trials (
 
     sub.submit_npx4 (
         commands, labels)
-        #blacklist=cg.blacklist (blacklist))
+
+@cli.command ()
+@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--dry/--nodry', default=False)
+@click.option ('--seed', default=0)
+@click.option ('--template', default='kra5')
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--nn/--nonn', default=True)
+@pass_state
+def submit_gp_sens (
+        state, n_trials, dry, seed, template, model_name, nn):
+    ana_name = state.ana_name
+    T = time.time ()
+    job_basedir = state.job_basedir #'/scratch/ssclafani/' 
+    job_dir = '{}/{}/ECAS_gp/T_{:17.6f}'.format (
+        job_basedir, ana_name,  T)
+    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
+    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    commands, labels = [], []
+    this_script = os.path.abspath (__file__)
+    trial_script = os.path.abspath('trials.py')
+    additionalpdfs = ['None', 'sigma']
+    for addpdf in additionalpdfs:
+        if nn:
+            s =  seed
+            fmt = '{} do-gp-sens  --n-trials {}' \
+                                ' --seed={} --model_name {} --additionalpdfs {} --nn {}'
+            command = fmt.format ( trial_script, n_trials,
+                                 s, model_name, addpdf, template)
+            fmt = 'csky__trials_{:07d}_' \
+                    'gp_{}_seed_{:04d}_nn_{}_{}'
+            label = fmt.format (n_trials, template,  s, model_name, addpdf)
+            commands.append (command)
+            labels.append (label)
+        else:
+            s =  seed
+            fmt = '{} do-gp-sens  --n-trials {}' \
+                                ' --seed={} --nonn  --additionalpdfs {} {}'
+            command = fmt.format ( trial_script, n_trials,
+                                 s, addpdf, template)
+            fmt = 'csky__trials_{:07d}_' \
+                    'gp_{}_seed_{:04d}_{}'
+            label = fmt.format (n_trials, template,  s, addpdf)
+            commands.append (command)
+            labels.append (label)
+    sub.dry = dry
+    print(hostname)
+    if nn:
+        if 'condor00' in hostname:
+            sub.submit_condor00 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
+        else:
+            sub.submit_npx4 (commands, labels, reqs = '(TARGET.has_avx2) && (TARGET.has_ssse3)')
+    else:
+        if 'condor00' in hostname:
+            print('submitting from condor00')
+            sub.submit_condor00 (commands, labels)
+        else:
+            sub.submit_npx4 (commands, labels)
+
+
 
 if __name__ == '__main__':
     exe_t0 = now ()
