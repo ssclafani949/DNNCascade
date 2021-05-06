@@ -1,11 +1,15 @@
 # DNNCascade
+
 Analysis Scripts for DNNCascade Source Search
 
-Requirements csky, click, submitter
+Requirements: 
+csky
+click
+Submitter (https://github.com/ssclafani949/Submitter)
 
 Usage examples.
 
-#Run PS Trials on Cobalt
+## Run PS Trials on Cobalt
 eg, run 100 trials at dec = -30 with the NN based PDFs injecting 25 events
 
 `python trials.py do-ps-trials --cpus N --nn --dec_deg -30 --n-trials 100 --n-sig 25`
