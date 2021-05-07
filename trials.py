@@ -14,10 +14,6 @@ import matplotlib.pyplot as plt
 import click, sys, os, time
 flush = sys.stdout.flush
 
-global mucut
-global ccut
-global ethresh 
-
 hostname = socket.gethostname()
 print('Hostname: {}'.format(hostname))
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
@@ -43,7 +39,7 @@ class State (object):
     def ana (self):
         if self._ana is None:
             repo.clear_cache()
-            specs = cy.selections.DNNC_11yr
+            specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr
             ana = cy.analysis.Analysis (repo, specs)#r=self.ana_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
@@ -186,7 +182,7 @@ def do_ps_sens (
                         else:
                             model_name += '_{}{}'.format(key, value)
                     return model_name
-                model_base_dir = '/data/user/mhuennefeld/analyses/DNNCascade/csky/models'
+                model_base_dir ='/data/i3store/users/ssclafani/models'
                 cut_settings = {
                     'mucut' : 5e-3,
                     'ccut' : 0.3,
@@ -360,7 +356,7 @@ def do_ps_trials (
                     else:
                         model_name += '_{}{}'.format(key, value)
                 return model_name
-            model_base_dir = '/data/user/mhuennefeld/analyses/DNNCascade/csky/models'
+            model_base_dir ='/data/i3store/users/ssclafani/models'
             cut_settings = {
                 'mucut' : 5e-3,
                 'ccut' : 0.3,
@@ -537,36 +533,164 @@ def collect_ps_sig (state):
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--model_name', default='small_scipy1d', type=str)
+@click.option ('--nn/--nonn', default=True)
 @pass_state
-def do_gp_trials ( state, temp, n_trials, n_sig, poisson, seed, cpus, logging=True):
+def do_gp_trials ( 
+            state, temp, n_trials, n_sig, 
+            poisson, seed, cpus, additionalpdfs, model_name, nn, logging=True):
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     print(seed)
     ana = state.ana
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
-    if temp == 'pi0':
-        template = repo.get_template ('Fermi-LAT_pi0_map')
-        gp_conf = {
-            'template': template,
-            'flux':     cy.hyp.PowerLawFlux(2.5),
-            'fitter_args': dict(gamma=2.5),
-            'sigsub': True,
-            'fast_weight': True,
-            'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-    elif temp =='kra5':
-        kra5_map, kra5_energy_bins = repo.get_template(
-                    'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-        gp_conf = {
-            # desired template
-            'template': template,
-            'bins_energy': kra5_energy_bins,
-            'fitter_args': dict(gamma=2.5),
-            'update_bg' : True,
-            'sigsub': True,
-            'dir': cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))}
+    def get_tr(nn, temp, additionalpdfs):
+        if nn:
+            print('Using NN description of Signal and BG')
+            from csky import models
+            import pickle
+            from csky.models import serialization
+            from csky.models.serialization import load_model
 
-    tr = cy.get_trial_runner(gp_conf, ana=ana)
+            from csky import models
+            import tensorflow as tf
+            model_base_dir ='/data/i3store/users/ssclafani/models'
+            ratio_model_name = model_name
+            def get_model_name(**kwargs):
+                model_name = 'model'
+                for key in sorted(kwargs.keys()):
+                    value = kwargs[key]
+                    if isinstance(value, float):
+                        model_name += '_{}{:3.2e}'.format(key, value)
+                    else:
+                        model_name += '_{}{}'.format(key, value)
+                return model_name
+            cut_settings = {
+                 'mucut' : 5e-3,
+                 'ccut' : 0.3,
+                 'ethresh' : 500,
+                 'angrescut' : float(np.deg2rad(30)),
+                 'angfloor' : float(np.deg2rad(0.5))
+            }
+            model_dir = '{}/sigma_pdf_test/{}'.format(
+                model_base_dir, get_model_name(**cut_settings))    
+
+            observables = ['log10energy']
+            if additionalpdfs == 'sigma_src':
+                conditionals = ['srcsindec', 'sindec', 'sigma', 'gamma']
+            else:    
+                conditionals = ['sindec', 'sigma', 'gamma']
+            observables = sorted(observables)
+            obs_str = observables[0].replace('src->', 'src')
+            for obs in observables[1:]:
+                obs_str += '_' + obs.replace('src->', 'src')
+                
+            conditionals = sorted(conditionals)
+            if len(conditionals) > 0:
+                cond_str = conditionals[0].replace('src->', 'src')
+            else:
+                cond_str = 'None'
+            for cond in conditionals[1:]:
+                cond_str += '_' + cond.replace('src->', 'src')
+            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
+                     model_dir, obs_str, cond_str, ratio_model_name)
+
+
+            ratio_model, info  = load_model(ratio_model_path)
+            print('features:', ratio_model.features)
+            print('parameters:', ratio_model.parameters)
+            print('observables:', ratio_model.observables)
+            print('conditionals:', ratio_model.conditionals) 
+             
+            #print(info)
+            trained_cut_settings = info['info']['cut_settings']
+            if trained_cut_settings['angrescut'] != np.deg2rad(30):
+                print(trained_cut_settings['angrescut'])
+                raise Exception('Angres cut doesnt Match!!')
+            if trained_cut_settings['ccut'] != 0.3:
+                print(trained_cut_settings['ccut'])
+                raise Exception('CascadeBDT cut doesnt Match!!')
+            if trained_cut_settings['mucut'] != 5e-3:
+                print(trained_cut_settings['mucut'])
+                raise Exception('MuonBDT cut doesnt Match!!')
+            if trained_cut_settings['ethresh'] != 500:
+                print(trained_cut_settings['ethresh'])
+                raise Exception('Ethresh cut doesnt Match!!')
+            if temp == 'pi0':
+                template = repo.get_template ('Fermi-LAT_pi0_map')
+                gp_conf = {
+                    'template': template,
+                    'flux':     cy.hyp.PowerLawFlux(2.5),
+                    'fitter_args': dict(gamma=2.5),
+                    'sigsub': True,
+                    'fast_weight': True,
+                    cy.pdf.GenericPDFRatioModel: dict(
+                                func = ratio_model,
+                                features = ratio_model.features,
+                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
+                            ),
+                    'update_bg': True,
+                    'energy' : False #If using the NN energy needs to be set to False, 
+                        }   
+            elif 'kra' in temp:
+                if temp =='kra5':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+                elif temp =='kra50':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_50PeV_maps_energies', per_pixel_flux=True)
+                gp_conf = {
+                  # desired template
+                  'template': template,
+                  'bins_energy': energy_bins,
+                  'fitter_args' : dict(gamma=2.5),
+                  'update_bg' : True,
+                  'sigsub': True,
+                  'energy' : False
+                  }
+            if additionalpdfs == 'sigma':
+                print('Space * E * Sigma')   
+                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                            hkw=dict(bins=( np.linspace(-1,1,20),  
+                            np.linspace(0, np.deg2rad(30), 20))),
+                            features=['sindec', 'sigma'],
+                            normalize_axes = ([1])) 
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        else:
+            if temp == 'pi0':
+                template = repo.get_template ('Fermi-LAT_pi0_map')
+                gp_conf = {
+                    'template': template,
+                    'flux':     cy.hyp.PowerLawFlux(2.5),
+                    'fitter_args': dict(gamma=2.5),
+                    'sigsub': True,
+                    'fast_weight': True,
+                    'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
+            elif temp =='kra5':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+
+                gp_conf = {
+                    # desired template
+                    'template': template,
+                    'bins_energy': energy_bins,
+                    'fitter_args' : dict(gamma=2.5),
+                    'update_bg' : True,
+                    'sigsub': True,
+                    #'dir': cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))
+                    }
+            if additionalpdfs == 'sigma':
+                print('Space * E * Sigma')   
+                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0,
+                            np.deg2rad(30), 20))),
+                            features=['sindec', 'sigma'],
+                            normalize_axes = ([1])) 
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        return tr
+    tr = get_tr(nn, temp, additionalpdfs)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -591,51 +715,181 @@ def do_gp_trials ( state, temp, n_trials, n_sig, poisson, seed, cpus, logging=Tr
 @cli.command()
 @click.argument('temp')
 @click.option('--n-trials', default=1000, type=int)
+@click.option ('--additionalpdfs', type=str, default=None)
+@click.option ('--model_name', default='small_scipy1d', type=str)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--nn/--nonn', default=True)
 @pass_state
-def do_gp_sens ( state, temp, n_trials, seed, cpus, logging=True):
+def do_gp_sens ( state, temp, n_trials, additionalpdfs, model_name, seed, cpus, nn, logging=True):
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     print(seed)
     ana = state.ana
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
-    if temp == 'pi0':
-        template = repo.get_template ('Fermi-LAT_pi0_map')
-        gp_conf = {
-            'template': template,
-            'flux':     cy.hyp.PowerLawFlux(2.5),
-            'fitter_args': dict(gamma=2.5),
-            'sigsub': True,
-            'fast_weight': True,
-            'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-    elif temp =='kra5':
-        template, energy_bins = repo.get_template(
-                    'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-        gp_conf = {
-            # desired template
-            'template': template,
-            'bins_energy': energy_bins,
-            'fitter_args' : dict(gamma=2.5),
-            'update_bg' : True,
-            'sigsub': True,
-            #'dir': cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))
-            }
 
-    tr = cy.get_trial_runner(gp_conf, ana=ana)
+    def get_tr(nn, temp, additionalpdfs):
+        if nn:
+            print('Using NN description of Signal and BG')
+            from csky import models
+            import pickle
+            from csky.models import serialization
+            from csky.models.serialization import load_model
+
+            from csky import models
+            import tensorflow as tf
+            model_base_dir ='/data/i3store/users/ssclafani/models'
+            ratio_model_name = model_name
+            def get_model_name(**kwargs):
+                model_name = 'model'
+                for key in sorted(kwargs.keys()):
+                    value = kwargs[key]
+                    if isinstance(value, float):
+                        model_name += '_{}{:3.2e}'.format(key, value)
+                    else:
+                        model_name += '_{}{}'.format(key, value)
+                return model_name
+            cut_settings = {
+                 'mucut' : 5e-3,
+                 'ccut' : 0.3,
+                 'ethresh' : 500,
+                 'angrescut' : float(np.deg2rad(30)),
+                 'angfloor' : float(np.deg2rad(0.5))
+            }
+            model_dir = '{}/sigma_pdf_test/{}'.format(
+                model_base_dir, get_model_name(**cut_settings))    
+
+            observables = ['log10energy']
+            if additionalpdfs == 'sigma_src':
+                conditionals = ['srcsindec', 'sindec', 'sigma', 'gamma']
+            else:    
+                conditionals = ['sindec', 'sigma', 'gamma']
+            observables = sorted(observables)
+            obs_str = observables[0].replace('src->', 'src')
+            for obs in observables[1:]:
+                obs_str += '_' + obs.replace('src->', 'src')
+                
+            conditionals = sorted(conditionals)
+            if len(conditionals) > 0:
+                cond_str = conditionals[0].replace('src->', 'src')
+            else:
+                cond_str = 'None'
+            for cond in conditionals[1:]:
+                cond_str += '_' + cond.replace('src->', 'src')
+            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
+                     model_dir, obs_str, cond_str, ratio_model_name)
+
+
+            ratio_model, info  = load_model(ratio_model_path)
+            print('features:', ratio_model.features)
+            print('parameters:', ratio_model.parameters)
+            print('observables:', ratio_model.observables)
+            print('conditionals:', ratio_model.conditionals) 
+             
+            #print(info)
+            trained_cut_settings = info['info']['cut_settings']
+            if trained_cut_settings['angrescut'] != np.deg2rad(30):
+                print(trained_cut_settings['angrescut'])
+                raise Exception('Angres cut doesnt Match!!')
+            if trained_cut_settings['ccut'] != 0.3:
+                print(trained_cut_settings['ccut'])
+                raise Exception('CascadeBDT cut doesnt Match!!')
+            if trained_cut_settings['mucut'] != 5e-3:
+                print(trained_cut_settings['mucut'])
+                raise Exception('MuonBDT cut doesnt Match!!')
+            if trained_cut_settings['ethresh'] != 500:
+                print(trained_cut_settings['ethresh'])
+                raise Exception('Ethresh cut doesnt Match!!')
+            if temp == 'pi0':
+                template = repo.get_template ('Fermi-LAT_pi0_map')
+                gp_conf = {
+                    'template': template,
+                    'flux':     cy.hyp.PowerLawFlux(2.5),
+                    'fitter_args': dict(gamma=2.5),
+                    'sigsub': True,
+                    'fast_weight': True,
+                    cy.pdf.GenericPDFRatioModel: dict(
+                                func = ratio_model,
+                                features = ratio_model.features,
+                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
+                            ),
+                    'update_bg': True,
+                    'energy' : False #If using the NN energy needs to be set to False, 
+                        }   
+            elif 'kra' in temp:
+                if temp =='kra5':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+                elif temp =='kra50':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_50PeV_maps_energies', per_pixel_flux=True)
+                gp_conf = {
+                  # desired template
+                  'template': template,
+                  'bins_energy': energy_bins,
+                  'fitter_args' : dict(gamma=2.5),
+                  'update_bg' : True,
+                  'sigsub': True,
+                  'energy' : False
+                  }
+            if additionalpdfs == 'sigma':
+                print('Space * E * Sigma')   
+                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                            hkw=dict(bins=( np.linspace(-1,1,20),  
+                            np.linspace(0, np.deg2rad(30), 20))),
+                            features=['sindec', 'sigma'],
+                            normalize_axes = ([1])) 
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        else:
+            if temp == 'pi0':
+                template = repo.get_template ('Fermi-LAT_pi0_map')
+                gp_conf = {
+                    'template': template,
+                    'flux':     cy.hyp.PowerLawFlux(2.5),
+                    'fitter_args': dict(gamma=2.5),
+                    'sigsub': True,
+                    'fast_weight': True,
+                    'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
+            elif temp =='kra5':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+
+                gp_conf = {
+                    # desired template
+                    'template': template,
+                    'bins_energy': energy_bins,
+                    'fitter_args' : dict(gamma=2.5),
+                    'update_bg' : True,
+                    'sigsub': True,
+                    #'dir': cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))
+                    }
+            if additionalpdfs == 'sigma':
+                print('Space * E * Sigma')   
+                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
+                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0,
+                            np.deg2rad(30), 20))),
+                            features=['sindec', 'sigma'],
+                            normalize_axes = ([1])) 
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        return tr
+    tr = get_tr(nn, temp, additionalpdfs)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
 
     bg = cy.dists.Chi2TSD(tr.get_many_fits (
-        n_trials, n_sig=0, poisson=False, seed=seed, logging=logging))
+      n_trials, n_sig=0, poisson=False, seed=seed, logging=logging))
     t1 = now ()
     print ('Finished bg trials at {} ...'.format (t1))
 
-    template_sens = tr.find_n_sig(bg.median(), 0.9, n_sig_step=10,
-        batch_size = n_trials / 3, tol = 0.02, mp_cups=cpus)
-   
+    template_sens = tr.find_n_sig(
+                    bg.median(), 
+                    0.9, #percent above threshold (0.9 for sens)
+                    n_sig_step=10,
+                    batch_size = n_trials / 3, 
+                    tol = 0.02)
+
     if temp == 'pi0':
         template_sens['fluxE2_100TeV'] = tr.to_E2dNdE(template_sens['n_sig'], 
             E0 = 100 , unit = 1e3)
@@ -646,9 +900,14 @@ def do_gp_sens ( state, temp, n_trials, seed, cpus, logging=True):
 
     flush ()
 
-    out_dir = cy.utils.ensure_dir('{}/gp/{}/mucut/{}/ccut/{}/angrescut/{}/ethresh/{}/'.format(
-        state.base_dir,temp , state.mucut, state.ccut, state.angrescut,
-        state.ethresh))
+    if nn:
+        out_dir = cy.utils.ensure_dir(
+            '{}/NN{}/gp/{}/{}/'.format(
+            state.base_dir, model_name, additionalpdfs, temp))
+    else:
+        out_dir = cy.utils.ensure_dir(
+            '{}/gp/{}/{}/'.format(
+            state.base_dir,temp , additionalpdfs))
     out_file = out_dir + 'sens.npy'
     print(template_sens)
     np.save(out_file, template_sens)
