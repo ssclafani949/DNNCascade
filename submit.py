@@ -20,12 +20,12 @@ if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     print('Using UMD')
     repo = cy.selections.Repository(local_root='/data/i3store/users/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/ECAS_11_yrs')
+    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/DNNC/')
     job_basedir = '/data/i3home/ssclafani/submitter_logs'
 else:
     repo = cy.selections.Repository(local_root='/data/user/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/ECAS_11_yrs')
+    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/DNNC')
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
 
@@ -55,7 +55,7 @@ class State (object):
 pass_state = click.make_pass_decorator (State)
 
 @click.group (invoke_without_command=True, chain=True)
-@click.option ('-a', '--ana', 'ana_name', default='ECAS', help='Dataset title')
+@click.option ('-a', '--ana', 'ana_name', default='DNNC', help='Dataset title')
 @click.option ('--ana-dir', default=ana_dir, type=click.Path ())
 @click.option ('--job_basedir', default=job_basedir, type=click.Path ())
 @click.option ('--save/--nosave', default=False)
@@ -99,8 +99,8 @@ def submit_do_ps_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_basedir = state.job_basedir 
     poisson_str = 'poisson' if poisson else 'nopoisson'
-    job_dir = '{}/{}/ps_trials/T_{:17.6f}'.format (
-        job_basedir, ana_name,  T)
+    job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
+        job_basedir, ana_name, int(gamma * 100),  T)
     sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
@@ -123,14 +123,14 @@ def submit_do_ps_trials (
                 else:
                     fmt = ' {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
                             ' --n-sig={} --gamma={:.3f} --cutoff={}' \
-                            ' --{} --seed={} --model_name {} --nnonn '
+                            ' --{} --seed={} --nnonn '
       
                     command = fmt.format (trial_script,  dec_deg, n_trials,
-                                          n_sig, gamma, cutoff, poisson_str, s, model_name)
+                                          n_sig, gamma, cutoff, poisson_str, s,)
                     fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
-                            'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}_nn_{}'
+                            'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}'
                     label = fmt.format (dec_deg, n_trials, n_sig, gamma,
-                                        cutoff, poisson_str, s, model_name)
+                                        cutoff, poisson_str, s )
 
                 commands.append (command)
                 labels.append (label)
