@@ -913,7 +913,6 @@ def do_gp_sens ( state, temp, n_trials, additionalpdfs, model_name, seed, cpus, 
     np.save(out_file, template_sens)
     print ('-> {}'.format (out_file))                                                          
 
-
 @cli.command ()
 @pass_state
 def collect_gp_trials (state):
