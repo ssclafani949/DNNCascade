@@ -490,7 +490,7 @@ def collect_ps_bg (state, fit, hist, dist, n):
         state.base_dir, state.ana_name,  suffix)
     bg = {}
     bgs = {}
-    dec_degs = np.r_[-89:+89.01:4]
+    dec_degs = np.r_[-89:+89.01:2]
     bg_dir = '{}/ps/trials/{}/bg'.format (
         state.base_dir, state.ana_name)
     #print(bg_dir)
