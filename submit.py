@@ -228,62 +228,57 @@ def submit_do_ps_sens (
 @click.option ('--additionalpdfs', type=str, default=None)
 @click.option ('--nn/--nonn', default=True)
 @click.option ('--dry/--nodry', default=False)
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--seed', default=0, type=int)
 @pass_state
 def submit_do_gp_trials (
-        state, temp, n_trials, n_jobs, n_sigs, poisson, dry, blacklist, seed):
-    
-    #example command using click python comb_sens.py submit_do_gp_trials --n-sig=0 --n-jobs=1 --n-trials=1000 pi0
+        state, temp, n_trials, n_jobs, n_sigs, 
+        poisson, model_name, additionalpdfs, nn, dry, cutoff, seed):
+    #example command using click python submit.py submit-do-gp-trials --n-sig=0 --n-jobs=1 --n-trials=1000 pi0
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
         job_basedir, ana_name, temp, T)
-    sub = Submitter (job_dir=job_dir, memory=10)#, max_jobs=400)
+    sub = Submitter (job_dir=job_dir, memory=8)#, max_jobs=400)
     commands, labels = [], []
-    this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
-    env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    print(n_sigs)
     for n_sig in n_sigs:
-        for i in xrange (n_jobs):
+        for i in range (n_jobs):
             if nn:
                 s = i + seed
-                fmt = '{} {} {} do_gp_trials --n-trials={}' \
+                fmt = '{} do-gp-trials --n-trials={}' \
                         ' --n-sig={} --additionalpdfs {} --model_name {}' \
-                        ' --{} --seed={} --nn {}'
-                command = fmt.format (trial_script, state.state_args, n_trials,
+                        ' --{} --seed={} --nn --cutoff {} {}'
+                command = fmt.format (trial_script,  n_trials,
                                       n_sig, additionalpdfs, model_name, poisson_str,  s, temp)
                 fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
-                        '{}__{}__seed_{:04d}_nn_{}_{}'
+                        '{}__{}__seed_{:04d}_nn_{}_{}_cutoff_{}'
                 label = fmt.format (
                         n_trials,  n_sig, temp, poisson_str, 
-                        s, model_name, additionalpdfs)
+                        s, model_name, additionalpdfs, cutoff)
             else:
                 s = i + seed
-                fmt = '{} {} {} do_gp_trials --n-trials={}' \
+                fmt = '{} do-gp-trials --n-trials={}' \
                         ' --n-sig={} --additionalpdfs {}' \
-                        ' --{} --seed={} --nonn {}'
-                command = fmt.format (trial_script, state.state_args, n_trials,
-                                      n_sig, additionalpdfs, poisson_str,  s, temp)
+                        ' --{} --seed={} --cutoff {} --nonn {}'
+                command = fmt.format (trial_script,  n_trials,
+                                      n_sig, additionalpdfs, poisson_str,  s, cutoff, temp)
                 fmt = 'csky__trials_{:07d}__n_sig_{:08.3f}__' \
-                        '{}__{}__seed_{:04d}__{}'
+                        '{}__{}__seed_{:04d}__cutoff_{}'
                 label = fmt.format (
                         n_trials,  n_sig, temp, poisson_str, 
-                        s,  additionalpdfs)
+                        s,   cutoff)
 
             commands.append (command)
             labels.append (label)
-    #print(commands)
-    #sub.dry = dry
     if 'condor00' in hostname:
         print('submitting from condor00')
         sub.submit_condor00 (commands, labels)
     else:
         sub.submit_npx4 (commands, labels)
-
-    sub.submit_npx4 (
-        commands, labels)
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -359,18 +354,20 @@ def submit_gp_sens (
 @pass_state
 def submit_do_stacking_trials (
         state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson,  dry, 
-        model_name, additionalpdfs, nn, seed):
+        model_name, catalog, additionalpdfs, nn, seed):
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_basedir = state.job_basedir 
-    poisson_str = 'poisson' if poisson else 'nopoisson'
-    job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
+    job_dir = '{}/{}/stacking_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
     sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
-    catalog = catalog or np.r_['snr', 'unid', 'pwn']
+    if catalog:
+        catalogs = [catalog]
+    else:
+        catalogs = ['snr', 'unid', 'pwn']
     for cat in catalogs:
         for n_sig in n_sigs:
             for i in range (n_jobs):
@@ -384,19 +381,19 @@ def submit_do_stacking_trials (
                                           n_sig, gamma, cutoff, poisson_str, s, model_name)
                     fmt = 'csky__cat_{}__trials_{:07d}__n_sig_{:08.3f}__' \
                             'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}_nn_{}'
-                    label = fmt.format (dec_deg, n_trials, n_sig, gamma,
+                    label = fmt.format (cat, n_trials, n_sig, gamma,
                                         cutoff, poisson_str, s, model_name)
                 else:
-                    fmt = ' {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
+                    fmt = ' {} do-stacking-trials --catalog={} --n-trials={}' \
                             ' --n-sig={} --gamma={:.3f} --cutoff={}' \
-                            ' --{} --seed={} --nnonn '
+                            ' --{} --seed={} --nonn '
       
-                    command = fmt.format (trial_script,  dec_deg, n_trials,
-                                          n_sig, gamma, cutoff, poisson_str, s,)
-                    fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
+                    command = fmt.format (trial_script,  cat, n_trials,
+                                          n_sig, gamma, cutoff, poisson_str, s)
+                    fmt = 'csky__cat_{}__trials_{:07d}__n_sig_{:08.3f}__' \
                             'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}'
-                    label = fmt.format (dec_deg, n_trials, n_sig, gamma,
-                                        cutoff, poisson_str, s )
+                    label = fmt.format (cat, n_trials, n_sig, gamma,
+                                        cutoff, poisson_str, s)
 
                 commands.append (command)
                 labels.append (label)
