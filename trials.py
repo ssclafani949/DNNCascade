@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 import csky as cy
 from csky import coord
 import numpy as np
@@ -8,7 +7,6 @@ import pickle, datetime, socket
 from submitter import Submitter
 import histlite as hl
 import astropy
-#from icecube import astro
 now = datetime.datetime.now
 import matplotlib.pyplot as plt
 import click, sys, os, time
@@ -40,7 +38,7 @@ class State (object):
         if self._ana is None:
             repo.clear_cache()
             specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr
-            ana = cy.analysis.Analysis (repo, specs)#r=self.ana_dir)
+            ana = cy.analysis.Analysis (repo, specs, dir=self.ana_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)
@@ -79,128 +77,38 @@ def setup_ana (state):
     state.ana
 
 @cli.command()
-@click.option('--n-trials', default=1000, type=int)
-@click.option ('--poisson/--nopoisson', default=True)
-@click.option ('--gamma', default=2.0, type=float)
+@click.option('--n-trials', default=1000, type=int, help='Number of bg trials to run')
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
+@click.option ('--sigsub/--nosigsub', default=True, type=bool, 
+    help='Include Signal Subtraction in LLH')
 @click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
-@click.option ('--seed', default=None, type=int)
-@click.option ('--cpus', default=1, type=int)
-@click.option ('--model_name', default='small_scipy1d', type=str)
-@click.option ('--additionalpdfs', type=str, default=None)
-@click.option ('--nn/--nonn', default=True)
+@click.option ('--seed', default=None, type=int, help='Seed for scrambeling')
+@click.option ('--cpus', default=1, type=int, help='Number of CPUs to use')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
 def do_ps_sens ( 
-        state, n_trials, poisson,gamma, dec_deg, seed, 
-        cpus, model_name, additionalpdfs, nn, cutoff, logging=True):
+        state, n_trials, gamma, sigsub, dec_deg, seed, 
+        cpus, cutoff, logging=True):
+    """
+    Do seeded point source sensitivity and save output.  Useful for quick debugging not for 
+    large scale trial calculations.
+    """
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     ana = state.ana
     sindec = np.sin(np.radians(dec_deg))
-    ratio_model_name = model_name
-    def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus, additionalpdfs=additionalpdfs):
-        def get_tr(sindec, gamma, cpus, additionalpdfs):
+    def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
+        def get_tr(sindec, gamma, cpus):
             src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
             cutoff_GeV = cutoff * 1e3
-            if nn:
-                from csky import models
-                import pickle
-                from csky.models import serialization
-                from csky.models.serialization import load_model
-                from csky import models
-                import tensorflow as tf
-                additionalpdfs = 'sigma' #need to enable sigma pdf if you use the NN
-
-                print('Using NN description of Signal and BG')
-                def get_model_name(**kwargs):
-                    model_name = 'model'
-                    for key in sorted(kwargs.keys()):
-                        value = kwargs[key]
-                        if isinstance(value, float):
-                            model_name += '_{}{:3.2e}'.format(key, value)
-                        else:
-                            model_name += '_{}{}'.format(key, value)
-                    return model_name
-                model_base_dir ='/data/i3store/users/ssclafani/models'
-                cut_settings = {
-                    'mucut' : 5e-3,
-                    'ccut' : 0.3,
-                    'ethresh' : 500,
-                    'angrescut' : float(np.deg2rad(30)),
-                    'angfloor' : float(np.deg2rad(0.5))
-                    }
-                model_dir = '{}/sigma_pdf_test/{}'.format(
-                    model_base_dir, get_model_name(**cut_settings))    
-
-                observables = ['log10energy']
-                conditionals = ['sindec', 'sigma', 'gamma']
-                observables = sorted(observables)
-                conditionals = sorted(conditionals)
-                obs_str = observables[0].replace('src->', 'src')        
-                for obs in observables[1:]:
-                    obs_str += '_' + obs.replace('src->', 'src')
-
-                conditionals = sorted(conditionals)
-                if len(conditionals) > 0:
-                    cond_str = conditionals[0].replace('src->', 'src')
-                else:
-                    cond_str = 'None'
-                for cond in conditionals[1:]:
-                    cond_str += '_' + cond.replace('src->', 'src')
-
-                ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                         model_dir, obs_str, cond_str, ratio_model_name)
-                ratio_model, info  = load_model(ratio_model_path)  
-                print('features:', ratio_model.features)
-                print('parameters:', ratio_model.parameters)
-                print('observables:', ratio_model.observables)
-                print('conditionals:', ratio_model.conditionals)
-
-                #Failsafe Checks!!
-                trained_cut_settings = info['info']['cut_settings']
-                if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                    print(trained_cut_settings['angrescut'])
-                    raise Exception('Angres cut doesnt Match!!')
-                if trained_cut_settings['ccut'] != 0.3:
-                    print(trained_cut_settings['ccut'])
-                    raise Exception('CascadeBDT cut doesnt Match!!')
-                if trained_cut_settings['mucut'] != 5e-3:
-                    print(trained_cut_settings['mucut'])                               
-                    raise Exception('MuonBDT cut doesnt Match!!')
-                if trained_cut_settings['ethresh'] != 500:
-                    print(trained_cut_settings['ethresh'])
-                    raise Exception('Ethresh cut doesnt Match!!')
-
-
-                ratio_model, info  = load_model(ratio_model_path)
-                print('features:', ratio_model.features)
-                print('parameters:', ratio_model.parameters)
-                print('observables:', ratio_model.observables)
-                print('conditionals:', ratio_model.conditionals) 
-                conf =  {
-                    'src' : src,
-                    cy.pdf.GenericPDFRatioModel: dict(
-                                func = ratio_model,
-                                features = ratio_model.features,
-                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                            ),
-                    'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                    'update_bg': True,
-                    'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
-                    }   
-            else:
-                conf = {
-                    'src' : src,
-                    'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                    'update_bg': True, 
-                    }
-            if additionalpdfs == 'sigma':
-                print('Space * E * Sigma')   
-                conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
-                            features=['sindec', 'sigma'],
-                            normalize_axes = ([1])) 
+            conf = {
+                'src' : src,
+                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                'update_bg': True,
+                'sigsub' : sigsub, 
+                'mp_cpus' : cpus
+                }
             tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
             return tr, src
         tr, src = get_tr(sindec, gamma, cpus, additionalpdfs)
@@ -218,7 +126,7 @@ def do_ps_sens (
             # tolerance, as estimated relative error
             tol=.025,
             first_batch_size = 250,
-            mp_cpus=mp_cpu
+            mp_cpus=cpus
         )
         sens['flux'] = tr.to_E2dNdE (sens['n_sig'], E0=100, unit=1e3)
         print(sens['flux'])
@@ -230,12 +138,8 @@ def do_ps_sens (
     sens = get_PS_sens (sindec, gamma=gamma, n_trials=n_trials) 
     
     sens_flux = np.array(sens['flux'])
-    if nn:
-        out_dir = cy.utils.ensure_dir('{}/E{}/NN/dec/{:+08.3f}/'.format(
-            state.base_dir, int(gamma*100),   dec_deg))
-    else:
-        out_dir = cy.utils.ensure_dir('{}/E{}/NoNN/dec/{:+08.3f}/'.format(
-            state.base_dir, int(gamma*100),  dec_deg))
+    out_dir = cy.utils.ensure_dir('{}/E{}/{}/{}/dec/{:+08.3f}/'.format(
+        state.base_dir, int(gamma*100), 'sigsub' if sigsub else 'nosigsub',  dec_deg))
 
     out_file = out_dir + 'sens.npy'
     print(sens_flux)
@@ -244,27 +148,28 @@ def do_ps_sens (
     print ('Finished sens at {} ...'.format (t1))
 
 @cli.command()
-@click.option('--n-trials', default=1000, type=int)
-@click.option ('-n', '--n-sig', default=0, type=float)
-@click.option ('--poisson/--nopoisson', default=True)
+@click.option('--n-trials', default=1000, type=int, help='Number of trails to run')
+@click.option ('-n', '--n-sig', default=0, type=float, help = 'Number of signal events to inject')
+@click.option ('--poisson/--nopoisson', default=True, 
+    help = 'toggle possion weighted signal injection')
+@click.option ('--sigsub/--nosigsub', default=True, type=bool, 
+    help='Include Signal Subtraction in LLH')
 @click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
-@click.option ('--gamma', default=2.0, type=float)
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
-@click.option ('--model_name', default='small_scipy1d', type=str)
-@click.option ('--additionalpdfs', type=str, default=None)
-@click.option ('--nn/--nonn', default=True)
-@click.option ('--seed', default=None, type=int)
-@click.option ('--cpus', default=1, type=int)
+@click.option ('--seed', default=None, type=int, help='Trial injection seed')
+@click.option ('--cpus', default=1, type=int, help='Number of CPUs to use')
 @pass_state
 def do_ps_trials ( 
-        state, dec_deg, n_trials, gamma, cutoff, 
-        model_name, additionalpdfs, nn,  n_sig, 
-        poisson, seed, cpus, logging=True):
-
+        state, dec_deg, n_trials, gamma, cutoff, n_sig, 
+        poisson, sigsub, seed, cpus, logging=True):
+    """
+    Do seeded point source trials and save output in a structured dirctory based on paramaters
+    """
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
-    print(seed)
+    print('Seed: {}'.format(seed))
     dec = np.radians(dec_deg)
     sindec = np.sin(dec)
     ana = state.ana
@@ -272,112 +177,18 @@ def do_ps_trials (
     src = cy.utils.Sources(dec=dec, ra=0)
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
-    def get_tr(sindec, gamma, cpus, additionalpdfs):
+    def get_tr(sindec, gamma, cpus):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
         cutoff_GeV = cutoff * 1e3
-        if nn:
-            from csky import models
-            import pickle
-            from csky.models import serialization
-            from csky.models.serialization import load_model
-            from csky import models
-            import tensorflow as tf
-            print('Using NN description of Signal and BG')
-            
-            ###need to add the sigma PDF
-            additionalpdfs = 'sigma'
-
-            def get_model_name(**kwargs):
-                model_name = 'model'
-                for key in sorted(kwargs.keys()):
-                    value = kwargs[key]
-                    if isinstance(value, float):
-                        model_name += '_{}{:3.2e}'.format(key, value)
-                    else:
-                        model_name += '_{}{}'.format(key, value)
-                return model_name
-            model_base_dir ='/data/i3store/users/ssclafani/models'
-            cut_settings = {
-                'mucut' : 5e-3,
-                'ccut' : 0.3,
-                'ethresh' : 500,
-                'angrescut' : float(np.deg2rad(30)),
-                'angfloor' : float(np.deg2rad(0.5))
-                }
-            model_dir = '{}/sigma_pdf_test/{}'.format(
-                model_base_dir, get_model_name(**cut_settings))    
-
-            observables = ['log10energy']
-            conditionals = ['sindec', 'sigma', 'gamma']
-            observables = sorted(observables)
-            conditionals = sorted(conditionals)
-            obs_str = observables[0].replace('src->', 'src')        
-            for obs in observables[1:]:
-                obs_str += '_' + obs.replace('src->', 'src')
-
-            conditionals = sorted(conditionals)
-            if len(conditionals) > 0:
-                cond_str = conditionals[0].replace('src->', 'src')
-            else:
-                cond_str = 'None'
-            for cond in conditionals[1:]:
-                cond_str += '_' + cond.replace('src->', 'src')
-
-            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                     model_dir, obs_str, cond_str, ratio_model_name)
-            ratio_model, info  = load_model(ratio_model_path)  
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals)
-
-            #Failsafe Checks!!
-            trained_cut_settings = info['info']['cut_settings']
-            if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                print(trained_cut_settings['angrescut'])
-                raise Exception('Angres cut doesnt Match!!')
-            if trained_cut_settings['ccut'] != 0.3:
-                print(trained_cut_settings['ccut'])
-                raise Exception('CascadeBDT cut doesnt Match!!')
-            if trained_cut_settings['mucut'] != 5e-3:
-                print(trained_cut_settings['mucut'])                               
-                raise Exception('MuonBDT cut doesnt Match!!')
-            if trained_cut_settings['ethresh'] != 500:
-                print(trained_cut_settings['ethresh'])
-                raise Exception('Ethresh cut doesnt Match!!')
-
-
-            ratio_model, info  = load_model(ratio_model_path)
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals) 
-            conf =  {
-                'src' : src,
-                cy.pdf.GenericPDFRatioModel: dict(
-                            func = ratio_model,
-                            features = ratio_model.features,
-                            fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                        ),
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True,
-                'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
-                }   
-        else:
-            conf = {
-                'src' : src,
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True, 
-                }
-        if additionalpdfs == 'sigma':
-            print('Space * E * Sigma')   
-            conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                        hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
-                        features=['sindec', 'sigma'],
-                        normalize_axes = ([1])) 
+        conf = {
+            'src' : src,
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+            'update_bg': True,
+            'sigsub' :  sigsub, 
+            }
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
-    tr , src = get_tr(sindec, gamma, cpus, additionalpdfs)
+    tr , src = get_tr(sindec, gamma, cpus)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -390,8 +201,9 @@ def do_ps_trials (
     flush ()
     if n_sig:
         out_dir = cy.utils.ensure_dir (
-            '{}/ps/trials/{}/{}/gamma/{:.3f}/cutoff_TeV/{:.0f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (
+            '{}/ps/trials/{}/{}/{}/gamma/{:.3f}/cutoff_TeV/{:.0f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (
                 state.base_dir, state.ana_name,
+                'sigsub' if sigsub else 'nosigsub',
                 'poisson' if poisson else 'nonpoisson',
                  gamma, cutoff, dec_deg, n_sig))
     else:
@@ -404,20 +216,17 @@ def do_ps_trials (
 
 
 @cli.command ()
-@click.option ('--fit/--nofit', default=True)
-@click.option ('--hist/--nohist', default=False)
-@click.option ('--dist/--nodist', default=False)
+@click.option ('--fit/--nofit', default=True, help = 'Chi2 Fit')
+@click.option ('--dist/--nodist', default=False, help = 'Disable TS Distribution Fit')
 @click.option ('-n', '--n', default=0, type=int)
 @pass_state
-def collect_ps_bg (state, fit, hist, dist, n):
-    print(dist)
-    #bg = {'dec': {}}
+def collect_ps_bg (state, fit,  dist, n):
+    """
+    Collect all Background Trials and save in nested dict
+    """
     kw = {}
-    if hist:
-        TSD = cy.dists.BinnedTSD
-        suffix = '_hist'
-        kw['keep_trials'] = False
-    elif fit:
+    dec_degs = np.r_[-89:+89.01:2]
+    if fit:
         TSD = cy.dists.Chi2TSD
         suffix = '_chi2'
     elif dist:
@@ -430,13 +239,10 @@ def collect_ps_bg (state, fit, hist, dist, n):
         state.base_dir, state.ana_name,  suffix)
     bg = {}
     bgs = {}
-    dec_degs = np.r_[-89:+89.01:2]
     bg_dir = '{}/ps/trials/{}/bg'.format (
         state.base_dir, state.ana_name)
-    #print(bg_dir)
     for dec_deg in dec_degs:
         key = '{:+08.3f}'.format (dec_deg)
-        #print ('\r{} ...'.format (key), end='')
         flush ()
         print('{}/dec/{}/'.format(bg_dir, key))
         if dist == False:
@@ -457,6 +263,9 @@ def collect_ps_bg (state, fit, hist, dist, n):
 @cli.command ()
 @pass_state
 def collect_ps_sig (state):
+    """
+    Collect all Signal Trials and save in nested dict
+    """
     sig_dir = '{}/ps/trials/{}/poisson'.format (state.base_dir, state.ana_name)
     sig = cy.bk.get_all (
         sig_dir, '*.npy', merge=np.concatenate, post_convert=cy.utils.Arrays)
@@ -473,193 +282,71 @@ def collect_ps_sig (state):
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
-@click.option ('--additionalpdfs', type=str, default=None)
-@click.option ('--model_name', default='small_scipy1d', type=str)
-@click.option ('--nsigma', default=0, type=int)
-@click.option ('--nn/--nonn', default=True)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
 def do_gp_trials ( 
             state, temp, n_trials, n_sig, 
-            poisson, seed, cpus, additionalpdfs, model_name, 
-            nsigma, nn, cutoff, logging=True):
+            poisson, seed, cpus, 
+            cutoff, logging=True):
+    """
+    Do trials for galactic plane templates including fermi bubbles
+    and save output in a structured dirctory based on paramaters
+    """
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
-    print(seed)
+    print('Seed: {}'.format(seed))
     ana = state.ana
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
-    def get_tr(nn, temp, additionalpdfs):
-        if nn:
-            print('Using NN description of Signal and BG')
-            from csky import models
-            import pickle
-            from csky.models import serialization
-            from csky.models.serialization import load_model
-
-            from csky import models
-            import tensorflow as tf
-            model_base_dir ='/data/i3store/users/ssclafani/models'
-            ratio_model_name = model_name
-            def get_model_name(**kwargs):
-                model_name = 'model'
-                for key in sorted(kwargs.keys()):
-                    value = kwargs[key]
-                    if isinstance(value, float):
-                        model_name += '_{}{:3.2e}'.format(key, value)
-                    else:
-                        model_name += '_{}{}'.format(key, value)
-                return model_name
-            cut_settings = {
-                 'mucut' : 5e-3,
-                 'ccut' : 0.3,
-                 'ethresh' : 500,
-                 'angrescut' : float(np.deg2rad(30)),
-                 'angfloor' : float(np.deg2rad(0.5))
-            }
-            model_dir = '{}/sigma_pdf_test/{}'.format(
-                model_base_dir, get_model_name(**cut_settings))    
-
-            observables = ['log10energy']
-            if additionalpdfs == 'sigma_src':
-                conditionals = ['srcsindec', 'sindec', 'sigma', 'gamma']
-            else:    
-                conditionals = ['sindec', 'sigma', 'gamma']
-            observables = sorted(observables)
-            obs_str = observables[0].replace('src->', 'src')
-            for obs in observables[1:]:
-                obs_str += '_' + obs.replace('src->', 'src')
-                
-            conditionals = sorted(conditionals)
-            if len(conditionals) > 0:
-                cond_str = conditionals[0].replace('src->', 'src')
-            else:
-                cond_str = 'None'
-            for cond in conditionals[1:]:
-                cond_str += '_' + cond.replace('src->', 'src')
-            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                     model_dir, obs_str, cond_str, ratio_model_name)
-
-
-            ratio_model, info  = load_model(ratio_model_path)
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals) 
-             
-            #print(info)
-            trained_cut_settings = info['info']['cut_settings']
-            if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                print(trained_cut_settings['angrescut'])
-                raise Exception('Angres cut doesnt Match!!')
-            if trained_cut_settings['ccut'] != 0.3:
-                print(trained_cut_settings['ccut'])
-                raise Exception('CascadeBDT cut doesnt Match!!')
-            if trained_cut_settings['mucut'] != 5e-3:
-                print(trained_cut_settings['mucut'])
-                raise Exception('MuonBDT cut doesnt Match!!')
-            if trained_cut_settings['ethresh'] != 500:
-                print(trained_cut_settings['ethresh'])
-                raise Exception('Ethresh cut doesnt Match!!')
-            if temp == 'pi0':
-                template = repo.get_template ('Fermi-LAT_pi0_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True,
-                    cy.pdf.GenericPDFRatioModel: dict(
-                                func = ratio_model,
-                                features = ratio_model.features,
-                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                            ),
-                    'update_bg': True,
-                    'energy' : False #If using the NN energy needs to be set to False, 
-                        }   
-            elif 'kra' in temp:
-                if temp =='kra5':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                elif temp =='kra50':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_50PeV_maps_energies', per_pixel_flux=True)
-                gp_conf = {
-                  # desired template
-                  'template': template,
-                  'bins_energy': energy_bins,
-                  'fitter_args' : dict(gamma=2.5),
-                  'update_bg' : True,
-                  'sigsub': True,
-                  'energy' : False
-                  }
-            if additionalpdfs == 'sigma':
-                print('Space * E * Sigma')   
-                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                            hkw=dict(bins=( np.linspace(-1,1,20),  
-                            np.linspace(0, np.deg2rad(30), 20))),
-                            features=['sindec', 'sigma'],
-                            normalize_axes = ([1])) 
-            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
-        else:
-            if temp == 'pi0':
-                template = repo.get_template ('Fermi-LAT_pi0_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True,
-                    'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-            elif temp == 'fermibubbles':
-                template = repo.get_template ('Fermi_Bubbles_simple_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True}
-            elif 'kra' in temp:
-                if temp == 'kra5':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-                elif temp =='kra50':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-
-                gp_conf = {
-                    # desired template
-                    'template': template,
-                    'bins_energy': energy_bins,
-                    #'fitter_args' : dict(gamma=2.5),
-                    'update_bg' : True,
-                    'sigsub': True,
-                    cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                        hkw=dict(bins=(
-                               np.linspace(-1,1, 20), 
-                               np.linspace(np.log10(500), 8.001, 20)
-                               )), 
-                        flux=kra_flux,
-                        features=['sindec', 'log10energy'],
-                        normalize_axes = ([1])), 
-                    'energy' : False 
-                    }
-            if additionalpdfs == 'sigma':
-                print('Space * E * Sigma')   
-                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0,
-                            np.deg2rad(30), 20))),
-                            features=['sindec', 'sigma'],
-                            normalize_axes = ([1])) 
+    def get_tr(nn, temp):
+        if temp == 'pi0':
+            template = repo.get_template ('Fermi-LAT_pi0_map')
+            gp_conf = {
+                'template': template,
+                'flux':     cy.hyp.PowerLawFlux(2.5),
+                'fitter_args': dict(gamma=2.5),
+                'sigsub': True,
+                'fast_weight': False,
+                'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
+        elif temp == 'fermibubbles':
+            template = repo.get_template ('Fermi_Bubbles_simple_map')
+            gp_conf = {
+                'template': template,
+                'flux':     cy.hyp.PowerLawFlux(2.5),
+                'fitter_args': dict(gamma=2.5),
+                'sigsub': True,
+                'fast_weight': False
+        elif 'kra' in temp:
+            if temp == 'kra5':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+                kra_flux = cy.hyp.BinnedFlux(
+                    bins_energy=energy_bins,  
+                    flux=template.sum(axis=0))
+            elif temp =='kra50':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_maps_energies', per_pixel_flux=True)
+                kra_flux = cy.hyp.BinnedFlux(
+                    bins_energy=energy_bins,  
+                    flux=template.sum(axis=0))
+            gp_conf = {
+                'template': template,
+                'bins_energy': energy_bins,
+                'update_bg' : True,
+                'sigsub': True,
+                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
+                    hkw=dict(bins=(
+                           np.linspace(-1,1, 20), 
+                           np.linspace(np.log10(500), 8.001, 20)
+                           )), 
+                    flux=kra_flux,
+                    features=['sindec', 'log10energy'],
+                    normalize_axes = ([1])), 
+                'energy' : False 
+                }
             tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
         return tr
-    tr = get_tr(nn, temp, additionalpdfs)
+    tr = get_tr(nn, temp)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -698,12 +385,15 @@ def do_gp_trials (
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
 @click.option ('--nsigma', default=0, type=int)
-@click.option ('--nn/--nonn', default=True)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
 def do_gp_sens ( 
         state, temp, n_trials, additionalpdfs, model_name, seed, cpus, nsigma,
         nn, cutoff, logging=True):
+    """
+    Calculate for galactic plane templates including fermi bubbles
+    Recommend to use do_gp_trials for analysis level mass trial calculation
+    """
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
@@ -713,174 +403,55 @@ def do_gp_sens (
     import healpy as hp
     hp.disable_warnings()
     cutoff_GeV = cutoff * 1e3
-    def get_tr(nn, temp, additionalpdfs):
-        if nn:
-            print('Using NN description of Signal and BG')
-            from csky import models
-            import pickle
-            from csky.models import serialization
-            from csky.models.serialization import load_model
+    def get_tr(nn, temp):
+        if temp == 'pi0':
+            template = repo.get_template ('Fermi-LAT_pi0_map')
+            gp_conf = {
+                'template': template,
+                'flux':     cy.hyp.PowerLawFlux(2.5),
+                'fitter_args': dict(gamma=2.5),
+                'sigsub': True,
+                'fast_weight': True,
+                'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
+        elif temp == 'fermibubbles':
+            template = repo.get_template ('Fermi_Bubbles_simple_map')
+            gp_conf = {
+                'template': template,
+                'flux':     cy.hyp.PowerLawFlux(2.5, energy_cutoff=cutoff_GeV),
+                'fitter_args': dict(gamma=2.5),
+                'sigsub': True,
+                'fast_weight': True}
+        elif 'kra' in temp:
+            if temp == 'kra5':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+                kra_flux = cy.hyp.BinnedFlux(
+                    bins_energy=energy_bins,  
+                    flux=template.sum(axis=0))
+            elif temp =='kra50':
+                template, energy_bins = repo.get_template(
+                          'KRA-gamma_maps_energies', per_pixel_flux=True)
+                kra_flux = cy.hyp.BinnedFlux(
+                    bins_energy=energy_bins,  
+                    flux=template.sum(axis=0))
 
-            from csky import models
-            import tensorflow as tf
-            model_base_dir ='/data/i3store/users/ssclafani/models'
-            ratio_model_name = model_name
-            def get_model_name(**kwargs):
-                model_name = 'model'
-                for key in sorted(kwargs.keys()):
-                    value = kwargs[key]
-                    if isinstance(value, float):
-                        model_name += '_{}{:3.2e}'.format(key, value)
-                    else:
-                        model_name += '_{}{}'.format(key, value)
-                return model_name
-            cut_settings = {
-                 'mucut' : 5e-3,
-                 'ccut' : 0.3,
-                 'ethresh' : 500,
-                 'angrescut' : float(np.deg2rad(30)),
-                 'angfloor' : float(np.deg2rad(0.5))
-            }
-            model_dir = '{}/sigma_pdf_test/{}'.format(
-                model_base_dir, get_model_name(**cut_settings))    
-
-            observables = ['log10energy']
-            if additionalpdfs == 'sigma_src':
-                conditionals = ['srcsindec', 'sindec', 'sigma', 'gamma']
-            else:    
-                conditionals = ['sindec', 'sigma', 'gamma']
-            observables = sorted(observables)
-            obs_str = observables[0].replace('src->', 'src')
-            for obs in observables[1:]:
-                obs_str += '_' + obs.replace('src->', 'src')
-                
-            conditionals = sorted(conditionals)
-            if len(conditionals) > 0:
-                cond_str = conditionals[0].replace('src->', 'src')
-            else:
-                cond_str = 'None'
-            for cond in conditionals[1:]:
-                cond_str += '_' + cond.replace('src->', 'src')
-            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                     model_dir, obs_str, cond_str, ratio_model_name)
-
-
-            ratio_model, info  = load_model(ratio_model_path)
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals) 
-             
-            #print(info)
-            trained_cut_settings = info['info']['cut_settings']
-            if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                print(trained_cut_settings['angrescut'])
-                raise Exception('Angres cut doesnt Match!!')
-            if trained_cut_settings['ccut'] != 0.3:
-                print(trained_cut_settings['ccut'])
-                raise Exception('CascadeBDT cut doesnt Match!!')
-            if trained_cut_settings['mucut'] != 5e-3:
-                print(trained_cut_settings['mucut'])
-                raise Exception('MuonBDT cut doesnt Match!!')
-            if trained_cut_settings['ethresh'] != 500:
-                print(trained_cut_settings['ethresh'])
-                raise Exception('Ethresh cut doesnt Match!!')
-            if temp == 'pi0':
-                template = repo.get_template ('Fermi-LAT_pi0_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True,
-                    cy.pdf.GenericPDFRatioModel: dict(
-                                func = ratio_model,
-                                features = ratio_model.features,
-                                fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                            ),
-                    'update_bg': True,
-                    'energy' : False #If using the NN energy needs to be set to False, 
-                        }   
-            elif 'kra' in temp:
-                if temp =='kra5':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                elif temp =='kra50':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_50PeV_maps_energies', per_pixel_flux=True)
-                gp_conf = {
-                  # desired template
-                  'template': template,
-                  'bins_energy': energy_bins,
-                  'fitter_args' : dict(gamma=2.5),
-                  'update_bg' : True,
-                  'sigsub': True,
-                  'energy' : False
-                  }
-            if additionalpdfs == 'sigma':
-                print('Space * E * Sigma')   
-                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                            hkw=dict(bins=( np.linspace(-1,1,20),  
-                            np.linspace(0, np.deg2rad(30), 20))),
-                            features=['sindec', 'sigma'],
-                            normalize_axes = ([1])) 
-            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
-        else:
-            if temp == 'pi0':
-                template = repo.get_template ('Fermi-LAT_pi0_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True,
-                    'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-            elif temp == 'fermibubbles':
-                template = repo.get_template ('Fermi_Bubbles_simple_map')
-                gp_conf = {
-                    'template': template,
-                    'flux':     cy.hyp.PowerLawFlux(2.5, energy_cutoff=cutoff_GeV),
-                    'fitter_args': dict(gamma=2.5),
-                    'sigsub': True,
-                    'fast_weight': True}
-            elif 'kra' in temp:
-                if temp == 'kra5':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-                elif temp =='kra50':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-
-                gp_conf = {
-                    # desired template
-                    'template': template,
-                    'bins_energy': energy_bins,
-                    #'fitter_args' : dict(gamma=2.5),
-                    'update_bg' : True,
-                    'sigsub': True,
-                    cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                        hkw=dict(bins=(
-                               np.linspace(-1,1, 20), 
-                               np.linspace(np.log10(500), 8.001, 20)
-                               )), 
-                        flux=kra_flux,
-                        features=['sindec', 'log10energy'],
-                        normalize_axes = ([1])), 
-                    'energy' : False 
-                    }
-            if additionalpdfs == 'sigma':
-                print('Space * E * Sigma')   
-                gp_conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                            hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0,
-                            np.deg2rad(30), 20))),
-                            features=['sindec', 'sigma'],
-                            normalize_axes = ([1])) 
+            gp_conf = {
+                # desired template
+                'template': template,
+                'bins_energy': energy_bins,
+                #'fitter_args' : dict(gamma=2.5),
+                'update_bg' : True,
+                'sigsub': True,
+                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
+                    hkw=dict(bins=(
+                           np.linspace(-1,1, 20), 
+                           np.linspace(np.log10(500), 8.001, 20)
+                           )), 
+                    flux=kra_flux,
+                    features=['sindec', 'log10energy'],
+                    normalize_axes = ([1])), 
+                'energy' : False 
+                }
             tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
         return tr
     tr = get_tr(nn, temp, additionalpdfs)
@@ -937,6 +508,9 @@ def do_gp_sens (
 @cli.command ()
 @pass_state
 def collect_gp_trials (state):
+    """
+    Collect all Background Trials and save in nested dict
+    """
     bg = cy.bk.get_all (
         '{}/gp/trials/{}/'.format (state.base_dir, state.ana_name),
         'trials*npy',
@@ -951,18 +525,17 @@ def collect_gp_trials (state):
 @click.option ('-n', '--n-sig', default=0, type=float)
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--catalog',   default='snr' , type=str, help='Stacking Catalog, SNR, PWN or UNID')
-@click.option ('--gamma', default=2.5, type=float)
+@click.option ('--gamma', default=2.0, type=float, help = 'Spectrum to Inject')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')
-@click.option ('--model_name', default='small_scipy1d', type=str)
-@click.option ('--additionalpdfs', type=str, default=None)
-@click.option ('--nn/--nonn', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
 @pass_state
 def do_stacking_trials (
         state, n_trials, gamma, cutoff, catalog,
-        model_name, additionalpdfs, nn,  n_sig, 
-        poisson, seed, cpus, logging=True):
+        n_sig,  poisson, seed, cpus, logging=True):
+    """
+    Do trials from a stacking catalog
+    """
     print('Catalog: {}'.format(catalog))
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -975,110 +548,15 @@ def do_stacking_trials (
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/{}/'.format (state.base_dir, catalog))
-    def get_tr(src, gamma, cpus, additionalpdfs):
-        if nn:
-            from csky import models
-            import pickle
-            from csky.models import serialization
-            from csky.models.serialization import load_model
-            from csky import models
-            import tensorflow as tf
-            print('Using NN description of Signal and BG')
-            
-            ###need to add the sigma PDF
-            additionalpdfs = 'sigma'
-
-            def get_model_name(**kwargs):
-                model_name = 'model'
-                for key in sorted(kwargs.keys()):
-                    value = kwargs[key]
-                    if isinstance(value, float):
-                        model_name += '_{}{:3.2e}'.format(key, value)
-                    else:
-                        model_name += '_{}{}'.format(key, value)
-                return model_name
-            model_base_dir ='/data/i3store/users/ssclafani/models'
-            cut_settings = {
-                'mucut' : 5e-3,
-                'ccut' : 0.3,
-                'ethresh' : 500,
-                'angrescut' : float(np.deg2rad(30)),
-                'angfloor' : float(np.deg2rad(0.5))
-                }
-            model_dir = '{}/sigma_pdf_test/{}'.format(
-                model_base_dir, get_model_name(**cut_settings))    
-
-            observables = ['log10energy']
-            conditionals = ['sindec', 'sigma', 'gamma']
-            observables = sorted(observables)
-            conditionals = sorted(conditionals)
-            obs_str = observables[0].replace('src->', 'src')        
-            for obs in observables[1:]:
-                obs_str += '_' + obs.replace('src->', 'src')
-
-            conditionals = sorted(conditionals)
-            if len(conditionals) > 0:
-                cond_str = conditionals[0].replace('src->', 'src')
-            else:
-                cond_str = 'None'
-            for cond in conditionals[1:]:
-                cond_str += '_' + cond.replace('src->', 'src')
-
-            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                     model_dir, obs_str, cond_str, ratio_model_name)
-            ratio_model, info  = load_model(ratio_model_path)  
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals)
-
-            #Failsafe Checks!!
-            trained_cut_settings = info['info']['cut_settings']
-            if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                print(trained_cut_settings['angrescut'])
-                raise Exception('Angres cut doesnt Match!!')
-            if trained_cut_settings['ccut'] != 0.3:
-                print(trained_cut_settings['ccut'])
-                raise Exception('CascadeBDT cut doesnt Match!!')
-            if trained_cut_settings['mucut'] != 5e-3:
-                print(trained_cut_settings['mucut'])                               
-                raise Exception('MuonBDT cut doesnt Match!!')
-            if trained_cut_settings['ethresh'] != 500:
-                print(trained_cut_settings['ethresh'])
-                raise Exception('Ethresh cut doesnt Match!!')
-
-
-            ratio_model, info  = load_model(ratio_model_path)
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals) 
-            conf =  {
-                'src' : src,
-                cy.pdf.GenericPDFRatioModel: dict(
-                            func = ratio_model,
-                            features = ratio_model.features,
-                            fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                        ),
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True,
-                'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
-                }   
-        else:
-            conf = {
-                'src' : src,
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True, 
-                }
-        if additionalpdfs == 'sigma':
-            print('Space * E * Sigma')   
-            conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                        hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
-                        features=['sindec', 'sigma'],
-                        normalize_axes = ([1])) 
+    def get_tr(src, gamma, cpus):
+        conf = {
+            'src' : src,
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+            'update_bg': True, 
+            }
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
-    tr = get_tr(src, gamma, cpus, additionalpdfs)
+    tr = get_tr(src, gamma, cpus)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -1106,17 +584,13 @@ def do_stacking_trials (
 @cli.command()
 @click.option('--n-trials', default=10000, type=int)
 @click.option ('--catalog',   default='snr' , type=str, help='Stacking Catalog, SNR, PWN or UNID')
-@click.option ('--gamma', default=2.5, type=float)
+@click.option ('--gamma', default=2.0, type=float, help = 'Spectrum to Inject')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')
-@click.option ('--model_name', default='small_scipy1d', type=str)
-@click.option ('--additionalpdfs', type=str, default=None)
-@click.option ('--nn/--nonn', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
 @pass_state
 def do_stacking_sens (
         state, n_trials, gamma, cutoff, catalog,
-        model_name, additionalpdfs, nn,
         seed, cpus, logging=True):
     print('Catalog: {}'.format(catalog))
     if seed is None:
@@ -1131,109 +605,14 @@ def do_stacking_sens (
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/{}/'.format (state.base_dir, catalog))
     def get_tr(src, gamma, cpus, additionalpdfs):
-        if nn:
-            from csky import models
-            import pickle
-            from csky.models import serialization
-            from csky.models.serialization import load_model
-            from csky import models
-            import tensorflow as tf
-            print('Using NN description of Signal and BG')
-            
-            ###need to add the sigma PDF
-            additionalpdfs = 'sigma'
-
-            def get_model_name(**kwargs):
-                model_name = 'model'
-                for key in sorted(kwargs.keys()):
-                    value = kwargs[key]
-                    if isinstance(value, float):
-                        model_name += '_{}{:3.2e}'.format(key, value)
-                    else:
-                        model_name += '_{}{}'.format(key, value)
-                return model_name
-            model_base_dir ='/data/i3store/users/ssclafani/models'
-            cut_settings = {
-                'mucut' : 5e-3,
-                'ccut' : 0.3,
-                'ethresh' : 500,
-                'angrescut' : float(np.deg2rad(30)),
-                'angfloor' : float(np.deg2rad(0.5))
-                }
-            model_dir = '{}/sigma_pdf_test/{}'.format(
-                model_base_dir, get_model_name(**cut_settings))    
-
-            observables = ['log10energy']
-            conditionals = ['sindec', 'sigma', 'gamma']
-            observables = sorted(observables)
-            conditionals = sorted(conditionals)
-            obs_str = observables[0].replace('src->', 'src')        
-            for obs in observables[1:]:
-                obs_str += '_' + obs.replace('src->', 'src')
-
-            conditionals = sorted(conditionals)
-            if len(conditionals) > 0:
-                cond_str = conditionals[0].replace('src->', 'src')
-            else:
-                cond_str = 'None'
-            for cond in conditionals[1:]:
-                cond_str += '_' + cond.replace('src->', 'src')
-
-            ratio_model_path = '{}/{}/{}/ratio_model_interp/{}'.format(
-                     model_dir, obs_str, cond_str, ratio_model_name)
-            ratio_model, info  = load_model(ratio_model_path)  
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals)
-
-            #Failsafe Checks!!
-            trained_cut_settings = info['info']['cut_settings']
-            if trained_cut_settings['angrescut'] != np.deg2rad(30):
-                print(trained_cut_settings['angrescut'])
-                raise Exception('Angres cut doesnt Match!!')
-            if trained_cut_settings['ccut'] != 0.3:
-                print(trained_cut_settings['ccut'])
-                raise Exception('CascadeBDT cut doesnt Match!!')
-            if trained_cut_settings['mucut'] != 5e-3:
-                print(trained_cut_settings['mucut'])                               
-                raise Exception('MuonBDT cut doesnt Match!!')
-            if trained_cut_settings['ethresh'] != 500:
-                print(trained_cut_settings['ethresh'])
-                raise Exception('Ethresh cut doesnt Match!!')
-
-
-            ratio_model, info  = load_model(ratio_model_path)
-            print('features:', ratio_model.features)
-            print('parameters:', ratio_model.parameters)
-            print('observables:', ratio_model.observables)
-            print('conditionals:', ratio_model.conditionals) 
-            conf =  {
-                'src' : src,
-                cy.pdf.GenericPDFRatioModel: dict(
-                            func = ratio_model,
-                            features = ratio_model.features,
-                            fits = dict(gamma=np.r_[1, 1:4.01:.125, 4]),
-                        ),
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True,
-                'energy' : False #If using the NN energy needs to be set to False, the energy term is in the NN
-                }   
-        else:
-            conf = {
-                'src' : src,
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True, 
-                }
-        if additionalpdfs == 'sigma':
-            print('Space * E * Sigma')   
-            conf[cy.pdf.SigmaPDFRatioModel] = dict(
-                        hkw=dict(bins=( np.linspace(-1,1,20),  np.linspace(0, np.deg2rad(30), 20))), 
-                        features=['sindec', 'sigma'],
-                        normalize_axes = ([1])) 
+        conf = {
+            'src' : src,
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+            'update_bg': True, 
+            }
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
-    tr = get_tr(src, gamma, cpus, additionalpdfs)
+    tr = get_tr(src, gamma, cpus)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -1248,9 +627,10 @@ def do_stacking_sens (
                     n_sig_step=5,
                     batch_size = n_trials / 3, 
                     tol = 0.02)
+    sens['flux'] = tr.to_E2dNdE(sens['n_sig'], E0=100, unit=1e3)
     print ('Finished sens at {} ...'.format (t1))
-    print (trials if n_sig else cy.dists.Chi2TSD (trials))
     print (t1 - t0, 'elapsed.')
+    print(sens['flux'])
     flush ()
 
 @cli.command ()
