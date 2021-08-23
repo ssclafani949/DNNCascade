@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 #from __future__ import print_function
-#import csky as cy
+import csky as cy
 #from csky import coord
-#import numpy as np
+import numpy as np
 import datetime, socket
 from submitter import Submitter
 now = datetime.datetime.now
@@ -30,8 +30,8 @@ class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir,  job_basedir):
         self.ana_name, self.ana_dir, self.save, self.job_basedir = ana_name, ana_dir, save, job_basedir
         self.base_dir = base_dir
-        self._ana = None
-
+        self._ana = None    
+    '''
     @property
     def ana (self):
         if self._ana is None:
@@ -43,6 +43,7 @@ class State (object):
             ana.name = self.ana_name
             self._ana = ana
         return self._ana
+    '''
 
     @property
     def state_args (self):
@@ -69,10 +70,10 @@ def report_timing (result, **kw):
     print ('c7: end at {} .'.format (exe_t1))
     print ('c7: {} elapsed.'.format (exe_t1 - exe_t0))
 
-@cli.command ()
-@pass_state
-def setup_ana (state):
-    state.ana
+#@cli.command ()
+#@pass_state
+#def setup_ana (state):
+#    state.ana
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -81,21 +82,23 @@ def setup_ana (state):
 @click.option ('--gamma', default=2, type=float)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--poisson/--nopoisson', default=True)
+@click.option ('--sigsub/--nosigsub', default=True)
 @click.option ('--dec', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @pass_state
 def submit_do_ps_trials (
-        state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson, dec_degs, dry, 
+        state, n_trials, n_jobs, n_sigs, gamma, 
+        cutoff,  poisson, sigsub, dec_degs, dry, 
         seed):
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
+    sigsub_str = 'sigsub' if poisson else 'nosigsub'
     job_basedir = state.job_basedir 
-    poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=5, max_jobs=1000)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     dec_degs = dec_degs or np.r_[-89:+89.01:2]
@@ -105,10 +108,10 @@ def submit_do_ps_trials (
                 s = i + seed
                 fmt = ' {} do-ps-trials --dec_deg={:+08.3f} --n-trials={}' \
                         ' --n-sig={} --gamma={:.3f} --cutoff={}' \
-                        ' --{} --seed={}'
+                        ' --{} --seed={} --{}'
   
                 command = fmt.format (trial_script,  dec_deg, n_trials,
-                                      n_sig, gamma, cutoff, poisson_str, s,)
+                                      n_sig, gamma, cutoff, poisson_str, s,sigsub_str)
                 fmt = 'csky__dec_{:+08.3f}__trials_{:07d}__n_sig_{:08.3f}__' \
                         'gamma_{:.3f}_cutoff_{}_{}__seed_{:04d}'
                 label = fmt.format (dec_deg, n_trials, n_sig, gamma,
@@ -186,7 +189,7 @@ def submit_do_gp_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
         job_basedir, ana_name, temp, T)
-    sub = Submitter (job_dir=job_dir, memory=8)#, max_jobs=400)
+    sub = Submitter (job_dir=job_dir, memory=5)#, max_jobs=400)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     print(n_sigs)
@@ -268,7 +271,7 @@ def submit_do_stacking_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/stacking_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=8, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=6, max_jobs=1000)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     if catalog:
