@@ -18,12 +18,12 @@ if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     print('Using UMD')
     repo = cy.selections.Repository(local_root='/data/i3store/users/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/baseline')
+    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/baseline_bandcut5')
     job_basedir = '/data/i3home/ssclafani/submitter_logs'
 else:
     repo = cy.selections.Repository(local_root='/data/user/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/baseline')
+    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/baseline_bandcut5')
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
 
@@ -39,9 +39,9 @@ class State (object):
             repo.clear_cache()
             specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr
             #specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr_systematics_full
-            #ana = cy.get_analysis(repo, 'version-001-p00', specs, dir = base_dir)
-            ana = cy.analysis.Analysis (repo,  specs,
-                energy_pdf_ratio_model_cls=cy.pdf.EnergyPDFRatioModel, energy_kw = dict(bg_from_mc_weight = 'weights'))
+            ana = cy.get_analysis(repo, 'version-001-p00', specs, dir = base_dir)
+            #ana = cy.analysis.Analysis (repo,  specs,
+            #    energy_pdf_ratio_model_cls=cy.pdf.EnergyPDFRatioModel, energy_kw = dict(bg_from_mc_weight = 'weights'))
 
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
@@ -101,7 +101,6 @@ def do_ps_sens (
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
-    ana = state.ana
     sindec = np.sin(np.radians(dec_deg))
     def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
         def get_tr(sindec, gamma, cpus):
@@ -192,20 +191,26 @@ def do_ps_trials (
     src = cy.utils.Sources(dec=dec, ra=0)
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
+    a = ana[0]
     def get_tr(sindec, gamma, cpus):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        cutoff_GeV = cutoff * 1e3
+        
         conf = {
             'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+            'flux' : cy.hyp.PowerLawFlux(2., energy_cutoff = np.inf),
             'update_bg': True,
-            'sigsub' :  sigsub, 
-            'randomize' : ['ra'],
-            #'jitter' : 0.05
+            'sigsub' :  True,
+            'randomize' : ['ra', cy.inj.DecRandomizer],
+            'sindec_bandwidth' : np.radians(5),
+            'dec_rand_method' : 'gaussian_fixed',
+            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+            'dec_rand_pole_exlusion' : np.radians(8)
             }
+ 
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
     tr , src = get_tr(sindec, gamma, cpus)
+    #print(cy.describe(tr))
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -291,6 +296,145 @@ def collect_ps_sig (state):
         pickle.dump (sig, f, -1)
     print ('->', outfile)
 
+
+@cli.command ()
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
+@click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
+@click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@pass_state
+def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
+    ana = state.ana
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    sigfile = '{}/sig.dict'.format (base_dir)
+    sig = np.load (sigfile, allow_pickle=True)
+    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    bg = np.load (bgfile, allow_pickle=True)
+    decs = list(bg['dec'].keys())
+    def get_n_sig(dec, gamma, beta=0.9, nsigma=None, cutoff=cutoff, verbose=verbose):
+        if cutoff == None:
+            cutoff_GeV = np.inf
+            cutoff = np.inf
+        else:
+            cutoff_GeV = cutoff*1e3
+        if verbose:
+            print(gamma, dec, cutoff)
+        sig_trials = cy.bk.get_best(sig,  'gamma', gamma, 'cutoff_TeV', 
+            cutoff, 'dec', dec, 'nsig')    
+        b = cy.bk.get_best(bg,  'dec', dec)
+        if verbose:
+            print(b)
+        src = cy.utils.sources(0, dec, deg=True)
+        conf = {
+            'src' : src, 
+            'flux' : cy.hyp.PowerLawFlux(2., energy_cutoff = cutoff_GeV),
+            'update_bg': True,
+            'sigsub' :  True,
+            'randomize' : ['ra', cy.inj.DecRandomizer],
+            'sindec_bandwidth' : np.radians(5),
+            'dec_rand_method' : 'gaussian_fixed',
+            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+            'dec_rand_pole_exlusion' : np.radians(8)
+            }
+        tr = cy.get_trial_runner(ana=ana, conf=conf)
+            # determine ts threshold
+        if nsigma !=None:
+            #print('sigma = {}'.format(nsigma))
+            ts = b.isf_nsigma(nsigma)
+        else:
+            #print('Getting sensitivity')
+            ts = cy.dists.Chi2TSD(b).median()
+        if verbose:
+            print(ts)
+
+        # include background trials in calculation
+        trials = {0: b}
+        trials.update(sig_trials)
+
+        result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=verbose, trials=trials)
+        flux = tr.to_E2dNdE(result['n_sig'], E0=100, unit=1e3)
+        # return flux
+        if verbose:
+            print(ts, beta, result['n_sig'], flux)
+        return flux #, result['n_sig']
+    fluxs = []
+    
+    if nsigma:
+        beta = 0.5
+    else:
+        beta = 0.9
+    for i, dec in enumerate(decs):
+        print(dec, end='\r', flush=True)
+        fluxs.append(get_n_sig(dec, gamma, beta, nsigma, cutoff))
+
+    np.save(base_dir + '/ps_sens_flux_E{}.npy'.format(int(gamma * 100)), fluxs)
+    np.save(base_dir + '/ps_sens_decs_E{}.npy'.format(int(gamma * 100)), decs)
+
+@cli.command ()
+@click.option ('--dec', default=None, type=float, help='Declination in Degrees To Plot (Leave None To plot all')
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
+@click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@pass_state
+def bias_plots(state, dec, gamma, cutoff, verbose):
+    ana = state.ana
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    sigfile = '{}/sig.dict'.format (base_dir)
+    sig = np.load (sigfile, allow_pickle=True)
+    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    bg = np.load (bgfile, allow_pickle=True)
+    
+    if dec:
+        decs = [dec]
+    else:
+        decs = list(bg['dec'].keys())
+    for dec in decs:
+        fig, axs = plt.subplots(1, 2)
+        print('Plotting Bias for Declination : {}'.format(dec))
+        trials = {}
+        bgtrials = bg['dec'][dec]
+        sigtrials = sig['gamma'][gamma]['cutoff_TeV'][cutoff]['dec'][dec]['nsig']
+        
+        trials = sigtrials
+        trials[0.0] = bgtrials
+        n_sigs = sorted(list(trials.keys()))
+        allt = [trials[n_sig] for n_sig in n_sigs]
+
+        for (n_sig, t) in zip(n_sigs, allt):
+            t['ntrue'] = np.repeat(n_sig, len(t))
+        allt = cy.utils.Arrays.concatenate(allt)
+
+        dns = np.mean(np.diff(n_sigs))
+        ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
+        expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
+        expect_gamma = gamma
+     
+        ax = axs[0]
+        h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 100))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
+
+        lim = ns_bins[[0, -1]]
+        ax.set_xlim(ax.set_ylim(lim))
+        ax.plot(lim, lim,  **expect_kw)
+        ax.set_aspect('equal')
+
+        ax = axs[1]
+        h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 100))
+        hl.plot1d(ax, h.contain_project(1),errorbands=True,  drawstyle='default')
+        ax.axhline(expect_gamma, **expect_kw)
+        ax.set_xlim(axs[0].get_xlim())
+
+        for ax in axs:
+            ax.set_xlabel(r'$n_{inj}$')
+            ax.grid()
+        axs[0].set_ylabel(r'$n_s$')
+        axs[1].set_ylabel(r'$\gamma$')
+        #plt.legend()
+        plt.suptitle('Gamma: {} $\delta$: {}'.format(gamma, dec))
+
+        plt.tight_layout()
+        cy.plotting.saving(base_dir + '/plots/bias_plots' , 'bias_dec_{}_E{}'.format(dec, int(gamma * 100)))
+        plt.close()
 
 @cli.command()
 @click.argument('temp')

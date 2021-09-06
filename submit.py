@@ -94,7 +94,7 @@ def submit_do_ps_trials (
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
-    sigsub_str = 'sigsub' if poisson else 'nosigsub'
+    sigsub_str = 'sigsub' if sigsub else 'nosigsub'
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
