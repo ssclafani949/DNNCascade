@@ -11,7 +11,11 @@ now = datetime.datetime.now
 import click, sys, os, time
 flush = sys.stdout.flush
 
-hostname = socket.gethostname()
+
+repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
+
+
+'''hostname = socket.gethostname()
 print('Hostname: {}'.format(hostname))
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     print('Using UMD')
@@ -25,26 +29,12 @@ else:
     base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/DNNC')
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
-
+'''
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir,  job_basedir):
         self.ana_name, self.ana_dir, self.save, self.job_basedir = ana_name, ana_dir, save, job_basedir
         self.base_dir = base_dir
         self._ana = None    
-    '''
-    @property
-    def ana (self):
-        if self._ana is None:
-            specs = cy.selections.DNNCasacdeDataSpecs.DNNC_11yr
-            ana = cy.analysis.Analysis (repo, specs)#r=self.ana_dir)
-            if self.save:
-                cy.utils.ensure_dir (self.ana_dir)
-                ana.save (self.ana_dir)
-            ana.name = self.ana_name
-            self._ana = ana
-        return self._ana
-    '''
-
     @property
     def state_args (self):
         return '--ana {} --ana-dir {} --base-dir {}'.format (

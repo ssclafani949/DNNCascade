@@ -9,23 +9,27 @@ import astropy
 now = datetime.datetime.now
 import matplotlib.pyplot as plt
 import click, sys, os, time
+import config as cg
 flush = sys.stdout.flush
 hp.disable_warnings()
 
-hostname = socket.gethostname()
+'''hostname = socket.gethostname()
 print('Hostname: {}'.format(hostname))
+job_base = 'baseline_all'
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     print('Using UMD')
     repo = cy.selections.Repository(local_root='/data/i3store/users/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/baseline_bandcut5')
+    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/{}'.format(job_base))
     job_basedir = '/data/i3home/ssclafani/submitter_logs'
 else:
     repo = cy.selections.Repository(local_root='/data/user/ssclafani/data/analyses')
     ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/baseline_bandcut5')
+    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/{}'.format(job_base))
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/ssclafani/' 
+'''
+repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
 
 class State (object):
     def __init__ (self, ana_name, ana_dir, save, base_dir, job_basedir):
@@ -37,12 +41,11 @@ class State (object):
     def ana (self):
         if self._ana is None:
             repo.clear_cache()
-            specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr
-            #specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr_systematics_full
+            if 'baseline' in base_dir:
+                specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr
+            elif 'systematics' in base_dir:
+                specs = cy.selections.DNNCascadeDataSpecs.DNNC_11yr_systematics_full
             ana = cy.get_analysis(repo, 'version-001-p00', specs, dir = base_dir)
-            #ana = cy.analysis.Analysis (repo,  specs,
-            #    energy_pdf_ratio_model_cls=cy.pdf.EnergyPDFRatioModel, energy_kw = dict(bg_from_mc_weight = 'weights'))
-
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)
@@ -101,6 +104,7 @@ def do_ps_sens (
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
+    ana = state.ana
     sindec = np.sin(np.radians(dec_deg))
     def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
         def get_tr(sindec, gamma, cpus):
@@ -187,6 +191,7 @@ def do_ps_trials (
     print('Seed: {}'.format(seed))
     dec = np.radians(dec_deg)
     sindec = np.sin(dec)
+    t0 = now ()
     ana = state.ana
     src = cy.utils.Sources(dec=dec, ra=0)
     cutoff_GeV = cutoff * 1e3
@@ -197,7 +202,7 @@ def do_ps_trials (
         
         conf = {
             'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(2., energy_cutoff = np.inf),
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
             'randomize' : ['ra', cy.inj.DecRandomizer],
@@ -210,8 +215,7 @@ def do_ps_trials (
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
     tr , src = get_tr(sindec, gamma, cpus)
-    #print(cy.describe(tr))
-    t0 = now ()
+    #print(cy.describallt0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
     trials = tr.get_many_fits (
@@ -310,7 +314,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
     sig = np.load (sigfile, allow_pickle=True)
     bgfile = '{}/bg_chi2.dict'.format (base_dir)
     bg = np.load (bgfile, allow_pickle=True)
-    decs = list(bg['dec'].keys())
+    decs = list(bg['dec'].keys())[:-1]
     def get_n_sig(dec, gamma, beta=0.9, nsigma=None, cutoff=cutoff, verbose=verbose):
         if cutoff == None:
             cutoff_GeV = np.inf
@@ -327,7 +331,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
         src = cy.utils.sources(0, dec, deg=True)
         conf = {
             'src' : src, 
-            'flux' : cy.hyp.PowerLawFlux(2., energy_cutoff = cutoff_GeV),
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
             'randomize' : ['ra', cy.inj.DecRandomizer],
@@ -340,7 +344,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
             # determine ts threshold
         if nsigma !=None:
             #print('sigma = {}'.format(nsigma))
-            ts = b.isf_nsigma(nsigma)
+            ts = cy.dists.Chi2TSD(b).isf_nsigma(nsigma)
         else:
             #print('Getting sensitivity')
             ts = cy.dists.Chi2TSD(b).median()
@@ -358,17 +362,23 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
             print(ts, beta, result['n_sig'], flux)
         return flux #, result['n_sig']
     fluxs = []
-    
     if nsigma:
         beta = 0.5
     else:
         beta = 0.9
     for i, dec in enumerate(decs):
         print(dec, end='\r', flush=True)
-        fluxs.append(get_n_sig(dec, gamma, beta, nsigma, cutoff))
+        f = get_n_sig(dec, gamma, beta, nsigma, cutoff)
 
-    np.save(base_dir + '/ps_sens_flux_E{}.npy'.format(int(gamma * 100)), fluxs)
-    np.save(base_dir + '/ps_sens_decs_E{}.npy'.format(int(gamma * 100)), decs)
+        print(f)
+        fluxs.append(f)
+    if nsigma:
+        np.save(base_dir + '/ps_dp_{}sigma_flux_E{}.npy'.format(nsigma, int(gamma * 100)), fluxs)
+        np.save(base_dir + '/ps_dp_{}sigma_decs_E{}.npy'.format(nsigma, int(gamma * 100)), decs)
+    else:
+
+        np.save(base_dir + '/ps_sens_flux_E{}.npy'.format(int(gamma * 100)), fluxs)
+        np.save(base_dir + '/ps_sens_decs_E{}.npy'.format(int(gamma * 100)), decs)
 
 @cli.command ()
 @click.option ('--dec', default=None, type=float, help='Declination in Degrees To Plot (Leave None To plot all')
@@ -716,7 +726,13 @@ def do_stacking_trials (
         conf = {
             'src' : src,
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True, 
+            'update_bg': True,
+            'sigsub' :  True,
+            'randomize' : ['ra', cy.inj.DecRandomizer],
+            'sindec_bandwidth' : np.radians(5),
+            'dec_rand_method' : 'gaussian_fixed',
+            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+            'dec_rand_pole_exlusion' : np.radians(8)
             }
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
