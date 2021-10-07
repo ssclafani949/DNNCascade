@@ -7,29 +7,14 @@ import numpy as np
 import datetime, socket
 from submitter import Submitter
 now = datetime.datetime.now
-#import matplotlib.pyplot as plt
+import config as cg
 import click, sys, os, time
 flush = sys.stdout.flush
 
-
 repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
+hostname = cg.hostname
+username = cg.username
 
-
-'''hostname = socket.gethostname()
-print('Hostname: {}'.format(hostname))
-if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
-    print('Using UMD')
-    repo = cy.selections.Repository(local_root='/data/i3store/users/ssclafani/data/analyses')
-    ana_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/i3store/users/ssclafani/data/analyses/DNNC/')
-    job_basedir = '/data/i3home/ssclafani/submitter_logs'
-else:
-    repo = cy.selections.Repository(local_root='/data/user/ssclafani/data/analyses')
-    ana_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses')
-    base_dir = cy.utils.ensure_dir('/data/user/ssclafani/data/analyses/DNNC')
-    ana_dir = '{}/ana'.format (base_dir)
-    job_basedir = '/scratch/ssclafani/' 
-'''
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir,  job_basedir):
         self.ana_name, self.ana_dir, self.save, self.job_basedir = ana_name, ana_dir, save, job_basedir
@@ -60,10 +45,10 @@ def report_timing (result, **kw):
     print ('c7: end at {} .'.format (exe_t1))
     print ('c7: {} elapsed.'.format (exe_t1 - exe_t0))
 
-#@cli.command ()
-#@pass_state
-#def setup_ana (state):
-#    state.ana
+@cli.command ()
+@pass_state
+def setup_ana (state):
+    state.ana
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -88,7 +73,8 @@ def submit_do_ps_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=5, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     dec_degs = dec_degs or np.r_[-89:+89.01:2]
@@ -129,7 +115,8 @@ def submit_do_ps_sens (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -153,7 +140,6 @@ def submit_do_ps_sens (
         commands.append (command)
         labels.append (label)
     sub.dry = dry
-    print(hostname)
     if 'condor00' in hostname:
         sub.submit_condor00 (commands, labels)
     else:
@@ -179,7 +165,8 @@ def submit_do_gp_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
         job_basedir, ana_name, temp, T)
-    sub = Submitter (job_dir=job_dir, memory=5)#, max_jobs=400)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     print(n_sigs)
@@ -217,8 +204,8 @@ def submit_gp_sens (
     job_basedir = state.job_basedir #'/scratch/ssclafani/' 
     job_dir = '{}/{}/ECAS_gp/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=8,  max_jobs=1000)
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
@@ -261,7 +248,8 @@ def submit_do_stacking_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/stacking_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=6, max_jobs=1000)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     if catalog:
