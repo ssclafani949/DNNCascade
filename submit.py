@@ -194,11 +194,14 @@ def submit_do_gp_trials (
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
 @click.option ('--dry/--nodry', default=False)
+@click.option ('--gamma', default=2.5)
+@click.option ('--cutoff', default=np.inf)
+@click.option ('--nsigma', default=None)
 @click.option ('--seed', default=0)
 @click.option ('--template', default='kra5')
 @pass_state
 def submit_gp_sens (
-        state, n_trials, dry, seed, template):
+        state, n_trials, dry, gamma, cutoff, seed, template, nsigma):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir #'/scratch/ssclafani/' 
@@ -209,15 +212,23 @@ def submit_gp_sens (
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
-    
     s =  seed
-    fmt = '{} do-gp-sens  --n-trials {}' \
-                        ' --seed={} --nonn  --additionalpdfs {} {}'
-    command = fmt.format ( trial_script, n_trials,
-                         s, addpdf, template)
-    fmt = 'csky__trials_{:07d}_' \
-            'gp_{}_seed_{:04d}_{}'
-    label = fmt.format (n_trials, template,  s, addpdf)
+    if nsigma:
+        fmt = '{} do-gp-sens  --n-trials {}' \
+                            ' --seed={} --gamma {} --nsigma {} --cutoff {} {}'
+        command = fmt.format ( trial_script, n_trials,
+                             s, gamma, nsigma, cutoff, template)
+        fmt = 'csky__trials_{:07d}_' \
+                'gp_{}_gamma_{}_cutoff_{}_seed_{:04d}_{}sigma'
+        label = fmt.format (n_trials, template,  gamma, cutoff, s, nsigma)
+    else:
+        fmt = '{} do-gp-sens  --n-trials {}' \
+                            ' --seed={} --gamma {} --cutoff {} {}'
+        command = fmt.format ( trial_script, n_trials,
+                             s, gamma, cutoff, template)
+        fmt = 'csky__trials_{:07d}_' \
+                'gp_{}_gamma_{}_cutoff_{}_seed_{:04d}'
+        label = fmt.format (n_trials, template,  gamma, cutoff, s)
     commands.append (command)
     labels.append (label)
     sub.dry = dry
@@ -227,6 +238,61 @@ def submit_gp_sens (
         sub.submit_condor00 (commands, labels)
     else:
         sub.submit_npx4 (commands, labels)
+
+
+@cli.command ()
+@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--dry/--nodry', default=False)
+@click.option ('--seed', default=0)
+@click.option ('--template', default='kra5')
+@pass_state
+def submit_gp_erange (
+        state, n_trials, dry, seed, template):
+    ana_name = state.ana_name
+    T = time.time ()
+    job_basedir = state.job_basedir #'/scratch/ssclafani/' 
+    job_dir = '{}/{}/gp_erange/T_{:17.6f}'.format (
+
+        job_basedir, ana_name,  T)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
+    commands, labels = [], []
+    this_script = os.path.abspath (__file__)
+    trial_script = os.path.abspath('trials.py')
+    emins = np.round(np.linspace(500,10000, 21 ), 2)
+    emaxs = np.round(np.logspace(4.6,8,21), 2)
+    for emin in emins:
+        emax = 1e8
+        s =  seed
+        fmt = '{} do-gp-sens-erange  --n-trials {}' \
+                            ' --seed={} --emin {} --emax {} {}'
+        command = fmt.format ( trial_script, n_trials,
+                             s, emin, emax, template)
+        fmt = 'csky__trials_{:07d}_' \
+                'gp_{}_seed_{:04d}_emin{}_emax_{}'
+        label = fmt.format (n_trials, template,  s, emin, emax)
+        commands.append (command)
+        labels.append (label)
+    for emax in emaxs:
+        emin = 500 
+        s =  seed
+        fmt = '{} do-gp-sens-erange  --n-trials {}' \
+                            ' --seed={} --emin {} --emax {}  {}'
+        command = fmt.format ( trial_script, n_trials,
+                             s, emin, emax, template)
+        fmt = 'csky__trials_{:07d}_' \
+                'gp_{}_seed_{:04d}_emin{}_emax_{}'
+        label = fmt.format (n_trials, template,  s, emin, emax)
+        commands.append (command)
+        labels.append (label)
+    sub.dry = dry
+    print(hostname)
+    if 'condor00' in hostname:
+        print('submitting from condor00')
+        sub.submit_condor00 (commands, labels)
+    else:
+        sub.submit_npx4 (commands, labels)
+
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
