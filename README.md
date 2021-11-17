@@ -5,7 +5,7 @@ Analysis Scripts for DNNCascade Source Search
 Requirements: 
 
 * cvmfs with python 3 `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
-* csky version XXXXXX
+* csky tag v1.1.6
 * click (any version should work, but ran with version 7.1.2)
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
