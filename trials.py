@@ -1004,6 +1004,64 @@ def collect_stacking_sig (state):
             pickle.dump (sig, f, -1)
         print ('->', outfile)
 
+@cli.command ()
+@click.option('--n-trials', default=100, type=int)
+@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
+@click.option ('-n', '--n-sig', default=0, type=float, help = 'Number of signal events to inject')
+@click.option('--cpus', default=1, type=int)
+@click.option('--seed', default=None, type = int)
+@click.option('--gamma', default = 2.0, type = float)
+@pass_state
+def do_sky_scan_trials(state, n_trials,
+                    dec_deg,  n_sig, cpus, seed, gamma):
+    if seed is None:
+        seed = int (time.time () % 2**32)
+    random = cy.utils.get_random (seed) 
+    print('Seed: {}'.format(seed))
+    dec = np.radians(dec_deg)
+    sindec = np.sin(dec)
+    t0 = now ()
+    ana = state.ana
+    nside =128 
+    conf = {
+        'ana' : ana,
+        'sigsub' : True,
+        'update_bg' : True,
+        'flux' : cy.hyp.PowerLawFlux(gamma),
+        'randomize' : ['ra', cy.inj.DecRandomizer],
+        'sindec_bandwidth' : np.radians(5),
+        'dec_rand_method' : 'gaussian_fixed',
+        'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+        'dec_rand_pole_exlusion' : np.radians(8),
+        'mp_cpus' : cpus}
+
+    inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
+    inj_conf = {
+        'src' : inj_src,
+        'flux' : cy.hyp.PowerLawFlux(gamma),
+            }
+
+    sstr = cy.get_sky_scan_trial_runner(conf=conf, inj_conf = inj_conf,
+                                        min_dec= np.radians(-80),
+                                        max_dec = np.radians(80),
+                                        mp_scan_cpus = cpus,
+                                        nside=nside)        
+
+    trials = sstr.get_many_fits(n_trials, n_sig, poisson=True)
+    if n_sig:
+        out_dir = cy.utils.ensure_dir (
+            '{}/skyscan/trials/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (
+                state.base_dir, state.ana_name,
+                'poisson' if poisson else 'nonpoisson',
+                 gamma,  dec_deg, n_sig))
+    else:
+        out_dir = cy.utils.ensure_dir ('{}/skyscan/trials/{}/bg/'.format (
+            state.base_dir, state.ana_name))
+    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
+        out_dir, n_trials, seed)
+    print ('-> {}'.format (out_file))
+    np.save (out_file, trials.as_array)
+
 
 
 if __name__ == '__main__':
