@@ -95,13 +95,17 @@ def do_ps_sens (
             src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
             cutoff_GeV = cutoff * 1e3
             conf = {
-                'src' : src,
-                'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                'update_bg': True,
-                'sigsub' : sigsub, 
-                'mp_cpus' : cpus,
-                'randomize' : ['ra']
-                }
+               'src' : src,
+               'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+               'update_bg': True,
+               'sigsub' : sigsub, 
+               'mp_cpus' : cpus,
+               'randomize' : ['ra', cy.inj.DecRandomizer],
+               'sindec_bandwidth' : np.radians(5),
+               'dec_rand_method' : 'gaussian_fixed',
+               'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+               'dec_rand_pole_exlusion' : np.radians(8),
+               'mp_cpus' : cpus}
             tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
             return tr, src
         tr, src = get_tr(sindec, gamma, cpus)
@@ -168,6 +172,7 @@ def do_ps_trials (
         poisson, sigsub, seed, cpus, logging=True):
     """
     Do seeded point source trials and save output in a structured dirctory based on paramaters
+    Used for final Large Scale Trail Calculation
     """
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -248,6 +253,7 @@ def collect_ps_bg (state, fit,  dist, n):
     outfile = '{}/ps/trials/{}/bg{}.dict'.format (
         state.base_dir, state.ana_name,  suffix)
     bg = {}
+    print(TSD)
     bgs = {}
     bg_dir = '{}/ps/trials/{}/bg'.format (
         state.base_dir, state.ana_name)
@@ -255,7 +261,7 @@ def collect_ps_bg (state, fit,  dist, n):
         key = '{:+08.3f}'.format (dec_deg)
         flush ()
         print('{}/dec/{}/'.format(bg_dir, key))
-        if dist == False:
+        if dist:
             print('no dist') 
             post_convert = (lambda x: cy.utils.Arrays (x))
         else:
@@ -292,11 +298,14 @@ def collect_ps_sig (state):
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @pass_state
 def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
+    """
+    Calculate the Sensitvity or discovery potential once bg and sig files are collected
+    """
     ana = state.ana
     base_dir = state.base_dir + '/ps/trials/DNNC'
     sigfile = '{}/sig.dict'.format (base_dir)
     sig = np.load (sigfile, allow_pickle=True)
-    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    bgfile = '{}/bg.dict'.format (base_dir)
     bg = np.load (bgfile, allow_pickle=True)
     decs = list(bg['dec'].keys())[:-1]
     def get_n_sig(dec, gamma, beta=0.9, nsigma=None, cutoff=cutoff, verbose=verbose):
@@ -344,24 +353,26 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
         # return flux
         if verbose:
             print(ts, beta, result['n_sig'], flux)
-        return flux #, result['n_sig']
+        return flux , result['n_sig']
     fluxs = []
+    ns = []
     if nsigma:
         beta = 0.5
     else:
         beta = 0.9
     for i, dec in enumerate(decs):
-        print(dec, end='\r', flush=True)
-        f = get_n_sig(dec, gamma, beta, nsigma, cutoff)
-
-        print(f)
+        f, n = get_n_sig(dec, gamma, beta, nsigma, cutoff)
+        print('{:.3} : {:.3} : {:.5}           '.format(dec, n, f), end='\r', flush=True)
         fluxs.append(f)
+        ns.append(n)
     if nsigma:
         np.save(base_dir + '/ps_dp_{}sigma_flux_E{}.npy'.format(nsigma, int(gamma * 100)), fluxs)
+        np.save(base_dir + '/ps_dp_{}sigma_nss_E{}.npy'.format(nsigma, int(gamma * 100)), ns)
         np.save(base_dir + '/ps_dp_{}sigma_decs_E{}.npy'.format(nsigma, int(gamma * 100)), decs)
     else:
 
         np.save(base_dir + '/ps_sens_flux_E{}.npy'.format(int(gamma * 100)), fluxs)
+        np.save(base_dir + '/ps_sens_nss_E{}.npy'.format(int(gamma * 100)), ns)
         np.save(base_dir + '/ps_sens_decs_E{}.npy'.format(int(gamma * 100)), decs)
 
 @cli.command ()
@@ -688,8 +699,6 @@ def do_gp_sens (
     np.save(out_file, template_sens)
     print ('-> {}'.format (out_file))                                                          
 
-
-
 @cli.command()
 @click.argument('temp')
 @click.option('--n-trials', default=1000, type=int)
@@ -917,6 +926,11 @@ def do_stacking_trials (
 def do_stacking_sens (
         state, n_trials, gamma, cutoff, catalog,
         seed, cpus, logging=True):
+    """
+    Do senstivity calculation for stacking catalog.  Useful for quick numbers, not for
+    analysis level numbers of trials
+    """
+
     print('Catalog: {}'.format(catalog))
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -932,7 +946,13 @@ def do_stacking_sens (
         conf = {
             'src' : src,
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True, 
+            'update_bg': True,
+            'sigsub' :  True,
+            'randomize' : ['ra', cy.inj.DecRandomizer],
+            'sindec_bandwidth' : np.radians(5),
+            'dec_rand_method' : 'gaussian_fixed',
+            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+            'dec_rand_pole_exlusion' : np.radians(8)
             }
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
@@ -961,11 +981,15 @@ def do_stacking_sens (
 @click.option ('--dist/--nodist', default=False)
 @pass_state
 def collect_stacking_bg (state, dist):
+    """
+    Collect all background trials for stacking into one dictionary for calculation of sensitvity
+    """
     bg = {'cat': {}}
     cats = ['snr' , 'pwn', 'unid']
     for cat in cats:
         bg_dir = cy.utils.ensure_dir ('{}/stacking/trials/{}/catalog/{}/bg/'.format (
             state.base_dir, state.ana_name, cat))
+        print(bg_dir)
         print ('\r{} ...'.format (cat) + 10 * ' ', end='')
         flush ()
         if dist:
@@ -992,6 +1016,9 @@ def collect_stacking_bg (state, dist):
 @cli.command ()
 @pass_state
 def collect_stacking_sig (state):
+    """
+    Collect all signal trials for stacking into one dictionary for calculation of sensitvity
+    """
     cats = 'snr pwn unid'.split ()
     for cat in cats:
         sig_dir = '{}/stacking/trials/{}/catalog/{}/poisson'.format (
@@ -1003,6 +1030,174 @@ def collect_stacking_sig (state):
         with open (outfile, 'wb') as f:
             pickle.dump (sig, f, -1)
         print ('->', outfile)
+
+@cli.command ()
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
+@click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
+@click.option ('--gamma', default=2.0, type=float, help = 'Spectrum to Inject')
+@click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@pass_state
+def find_stacking_n_sig(state, gamma, nsigma,verbose):
+    """
+    Calculate the Sensitvity or discovery potential once bg and sig files are collected
+    Does all stacking catalogs
+    """
+    cutoff = None
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    ana = state.ana
+
+    #snrcat = np.load('../catalogs/snr_ESTES_12.pickle', allow_pickle=True)
+    #pwncat = np.load('../catalogs/pwn_ESTES_12.pickle', allow_pickle=True)
+    #unidcat = np.load('../catalogs/unid_ESTES_12.pickle', allow_pickle=True)
+    
+    #ana = state.ana
+    #base_dir = state.base_dir + '/stacking/trials/DNNC'
+    #sigfile = '{}/{}_sig.dict'.format (base_dir)
+    #sig = np.load (sigfile, allow_pickle=True)
+    #bgfile = '{}/{}_bg.dict'.format (base_dir)
+    #bg = np.load (bgfile, allow_pickle=True)
+
+    def find_n_sig_cat(src, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
+        # get signal trials, background distribution, and trial runner
+        if cutoff == None:
+            cutoff = np.inf
+            cutoff_GeV = np.inf
+        else:
+            cutoff_GeV = 1e3 * cutoff
+        if verbose:
+            print(gamma, cutoff)
+        sig_trials = cy.bk.get_best(sig,  'gamma', gamma, 'cutoff_TeV', 
+            cutoff, 'nsig')
+        b = bg
+        if verbose:
+            print(b)
+        conf = {
+            'src' : src,
+            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+            'update_bg': True,
+            'sigsub' :  True,
+            'randomize' : ['ra', cy.inj.DecRandomizer],
+            'sindec_bandwidth' : np.radians(5),
+            'dec_rand_method' : 'gaussian_fixed',
+            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+            'dec_rand_pole_exlusion' : np.radians(8)
+            }
+
+        tr = cy.get_trial_runner(ana=ana, conf=conf)
+            # determine ts threshold
+        if nsigma !=None:
+            #print('sigma = {}'.format(nsigma))
+            ts = b.isf_nsigma(nsigma)
+        else:
+            #print('Getting sensitivity')
+            ts = cy.dists.Chi2TSD(b).median()
+        if verbose:
+            print(ts)
+
+        # include background trials in calculation
+        trials = {0: b}
+        trials.update(sig_trials)
+
+        result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=verbose, trials=trials)
+        flux = tr.to_E2dNdE(result['n_sig'], E0=100, unit=1e3)
+        # return flux
+        if verbose:
+            print(ts, beta, result['n_sig'], flux)
+        return flux 
+    fluxs = []
+    if nsigma:
+        beta = 0.5
+    else:
+        beta = 0.9
+    cats = ['pwn', 'unid', 'snr']
+    for cat in cats:
+        
+        base_dir = state.base_dir + '/stacking/'
+        sigfile = '{}/{}_sig.dict'.format (base_dir, cat)
+        sig = np.load (sigfile, allow_pickle=True)
+        bgfile = '{}/{}_bg.dict'.format (base_dir, cat)
+        bg = np.load (bgfile, allow_pickle=True)
+        print('CATALOG: {}'.format(cat))
+        srcs= np.load('{}/catalogs/{}_ESTES_12.pickle'.format(this_dir, cat), allow_pickle=True)
+        src = cy.utils.Sources(ra = srcs['ra_deg'], dec=srcs['dec_deg'], deg=True)
+        for gamma in sig['gamma'].keys():
+            print ('Gamma: {}'.format(gamma))
+            f = find_n_sig_cat(src, gamma=gamma,nsigma=nsigma, cutoff=cutoff, verbose=False)
+            print('Sensitvity Flux: {:.8}'.format(f))     
+            fluxs.append(f)
+            if nsigma:
+                np.save(base_dir + '/stacking_{}_dp_{}sigma_flux_E{}.npy'.format(cat, nsigma, int(gamma * 100)), fluxs)
+            else:
+                np.save(base_dir + '/stacking_{}_sens_flux_E{}.npy'.format(cat, int(gamma * 100)), fluxs)
+
+
+@cli.command ()
+@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
+@click.option ('-n', '--n-sig', default=0, type=float, help = 'Number of signal events to inject')
+@click.option('--nside', default=128, type=int)
+@click.option('--cpus', default=1, type=int)
+@click.option('--seed', default=None, type = int)
+@click.option ('--poisson/--nopoisson', default=True, 
+    help = 'toggle possion weighted signal injection')
+@click.option('--gamma', default = 2.0, type = float)
+@pass_state
+def do_sky_scan_trials(state, poisson,
+                    dec_deg, nside, n_sig, cpus, seed, gamma):
+    """
+    Scan each point in the sky in a grid of pixels
+    """
+
+    if seed is None:
+        seed = int (time.time () % 2**32)
+    random = cy.utils.get_random (seed) 
+    print('Seed: {}'.format(seed))
+    dec = np.radians(dec_deg)
+    sindec = np.sin(dec)
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    bg = np.load (bgfile, allow_pickle=True)
+    ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
+    t0 = now ()
+    ana = state.ana
+    conf = {
+        'ana' : ana,
+        'sigsub' : True,
+        'update_bg' : True,
+        'flux' : cy.hyp.PowerLawFlux(gamma),
+        'randomize' : ['ra', cy.inj.DecRandomizer],
+        'sindec_bandwidth' : np.radians(5),
+        'dec_rand_method' : 'gaussian_fixed',
+        'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+        'dec_rand_pole_exlusion' : np.radians(8),
+        'mp_cpus' : cpus,
+        'extra_keep' : ['energy']}
+
+    inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
+    inj_conf = {
+        'src' : inj_src,
+        'flux' : cy.hyp.PowerLawFlux(gamma),
+            }
+    
+    sstr = cy.get_sky_scan_trial_runner(conf=conf, inj_conf = inj_conf,
+                                        min_dec= np.radians(-80),
+                                        max_dec = np.radians(80),
+                                        mp_scan_cpus = cpus,
+                                        nside=nside, ts_to_p = ts_to_p)        
+    print('Doing one Scan with nsig =  {}'.format(n_sig)) 
+    trials = sstr.get_one_scan(n_sig, poisson= poisson, logging=True)
+    if n_sig:
+        out_dir = cy.utils.ensure_dir (
+            '{}/skyscan/trials/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (
+                state.base_dir, state.ana_name,
+                'poisson' if poisson else 'nonpoisson',
+                 gamma,  dec_deg, n_sig))
+    else:
+        out_dir = cy.utils.ensure_dir ('{}/skyscan/trials/{}/bg/'.format (
+            state.base_dir, state.ana_name))
+    out_file = '{}/scan_seed_{:010d}.npy'.format (
+        out_dir,  seed)
+    print ('-> {}'.format (out_file))
+    np.save (out_file, trials)
 
 
 
