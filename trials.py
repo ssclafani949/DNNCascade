@@ -100,6 +100,7 @@ def do_ps_sens (
                'update_bg': True,
                'sigsub' : sigsub, 
                'mp_cpus' : cpus,
+               'bg_replace': True,
                'randomize' : ['ra', cy.inj.DecRandomizer],
                'sindec_bandwidth' : np.radians(5),
                'dec_rand_method' : 'gaussian_fixed',
@@ -143,7 +144,7 @@ def do_ps_sens (
     sens = get_PS_sens (sindec, gamma=gamma, n_trials=n_trials) 
     
     sens_flux = np.array(sens['flux'])
-    out_dir = cy.utils.ensure_dir('{}/E{}/{}/{}/dec/{:+08.3f}/'.format(
+    out_dir = cy.utils.ensure_dir('{}/E{}/{}/dec/{:+08.3f}/'.format(
         state.base_dir, int(gamma*100), 'sigsub' if sigsub else 'nosigsub',  dec_deg))
     if nsigma:
         out_file = out_dir + 'dp_{}sigma.npy'.format(nisgma)
@@ -179,6 +180,11 @@ def do_ps_trials (
     random = cy.utils.get_random (seed) 
     print('Seed: {}'.format(seed))
     dec = np.radians(dec_deg)
+    replace = False 
+    if replace:
+        replace_str = 'replace'
+    else:
+        replace_str = 'noreplace'
     sindec = np.sin(dec)
     t0 = now ()
     ana = state.ana
@@ -194,6 +200,7 @@ def do_ps_trials (
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
+            'bg_replace' : replace,
             'randomize' : ['ra', cy.inj.DecRandomizer],
             'sindec_bandwidth' : np.radians(5),
             'dec_rand_method' : 'gaussian_fixed',
@@ -240,20 +247,19 @@ def collect_ps_bg (state, fit,  dist, n):
     Collect all Background Trials and save in nested dict
     """
     kw = {}
-    dec_degs = np.r_[-89:+89.01:2]
+    dec_degs = np.r_[-81:+81.01:2]
     if fit:
         TSD = cy.dists.Chi2TSD
         suffix = '_chi2'
-    elif dist:
-        print('no distribution')
-        suffix = ''
     else:
-        TSD = cy.dists.TSD
-        suffix = ''
+        if dist:
+            TSD = cy.dists.TSD
+            suffix = 'TSD'
+        else:
+            suffix = ''
     outfile = '{}/ps/trials/{}/bg{}.dict'.format (
         state.base_dir, state.ana_name,  suffix)
     bg = {}
-    print(TSD)
     bgs = {}
     bg_dir = '{}/ps/trials/{}/bg'.format (
         state.base_dir, state.ana_name)
@@ -261,7 +267,7 @@ def collect_ps_bg (state, fit,  dist, n):
         key = '{:+08.3f}'.format (dec_deg)
         flush ()
         print('{}/dec/{}/'.format(bg_dir, key))
-        if dist:
+        if dist == False:
             print('no dist') 
             post_convert = (lambda x: cy.utils.Arrays (x))
         else:
@@ -296,8 +302,9 @@ def collect_ps_sig (state):
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@click.option ('--fit/--nofit', default=False, help = 'Fit the bkg dist to a chi2 or not?')
 @pass_state
-def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
+def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     """
@@ -327,6 +334,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
+            'bg_replace' : True,
             'randomize' : ['ra', cy.inj.DecRandomizer],
             'sindec_bandwidth' : np.radians(5),
             'dec_rand_method' : 'gaussian_fixed',
@@ -337,7 +345,10 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
             # determine ts threshold
         if nsigma !=None:
             #print('sigma = {}'.format(nsigma))
-            ts = cy.dists.Chi2TSD(b).isf_nsigma(nsigma)
+            if fit:
+                ts = cy.dists.Chi2TSD(b).isf_nsigma(nsigma)
+            else:
+                ts = cy.dists.TSD(b).isf_nsigma(nsigma)
         else:
             #print('Getting sensitivity')
             ts = cy.dists.Chi2TSD(b).median()
@@ -353,93 +364,39 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose):
         # return flux
         if verbose:
             print(ts, beta, result['n_sig'], flux)
-        return flux , result['n_sig']
+        return flux , result['n_sig'], ts
     fluxs = []
     ns = []
+    tss = []
+    if fit:
+        print('Fitting to a chi2')
+        fit_str = 'chi2fit'
+    else:
+        print('Not fitting to a chi2 - using bkg trials')
+        fit_str = 'nofit'    
     if nsigma:
         beta = 0.5
     else:
         beta = 0.9
     for i, dec in enumerate(decs):
-        f, n = get_n_sig(dec, gamma, beta, nsigma, cutoff)
-        print('{:.3} : {:.3} : {:.5}           '.format(dec, n, f), end='\r', flush=True)
+        f, n, ts = get_n_sig(dec, gamma, beta, nsigma, cutoff, fit)
+        print('{:.3} : {:.3} : {:.5}  : TS : {:.5}                                    '.format(
+            dec, n, f, ts) , end='\r', flush=True)
+
         fluxs.append(f)
         ns.append(n)
+        tss.append(ts)
     if nsigma:
-        np.save(base_dir + '/ps_dp_{}sigma_flux_E{}.npy'.format(nsigma, int(gamma * 100)), fluxs)
-        np.save(base_dir + '/ps_dp_{}sigma_nss_E{}.npy'.format(nsigma, int(gamma * 100)), ns)
-        np.save(base_dir + '/ps_dp_{}sigma_decs_E{}.npy'.format(nsigma, int(gamma * 100)), decs)
+        np.save(base_dir + '/ps_dp_{}sigma_flux_E{}_{}.npy'.format(
+            nsigma, int(gamma * 100), fit_str), fluxs)
+        np.save(base_dir + '/ps_dp_{}sigma_tss_E{}_{}.npy'.format(nsigma, int(gamma * 100), fit_str), tss)
+        np.save(base_dir + '/ps_dp_{}sigma_nss_E{}_{}.npy'.format(nsigma, int(gamma * 100), fit_str), ns)
+        np.save(base_dir + '/ps_dp_{}sigma_decs_E{}_{}.npy'.format(nsigma, int(gamma * 100), fit_str), decs)
     else:
 
-        np.save(base_dir + '/ps_sens_flux_E{}.npy'.format(int(gamma * 100)), fluxs)
-        np.save(base_dir + '/ps_sens_nss_E{}.npy'.format(int(gamma * 100)), ns)
-        np.save(base_dir + '/ps_sens_decs_E{}.npy'.format(int(gamma * 100)), decs)
-
-@cli.command ()
-@click.option ('--dec', default=None, type=float, help='Declination in Degrees To Plot (Leave None To plot all')
-@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
-@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
-@click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
-@pass_state
-def bias_plots(state, dec, gamma, cutoff, verbose):
-    ana = state.ana
-    base_dir = state.base_dir + '/ps/trials/DNNC'
-    sigfile = '{}/sig.dict'.format (base_dir)
-    sig = np.load (sigfile, allow_pickle=True)
-    bgfile = '{}/bg_chi2.dict'.format (base_dir)
-    bg = np.load (bgfile, allow_pickle=True)
-    
-    if dec:
-        decs = [dec]
-    else:
-        decs = list(bg['dec'].keys())
-    for dec in decs:
-        fig, axs = plt.subplots(1, 2)
-        print('Plotting Bias for Declination : {}'.format(dec))
-        trials = {}
-        bgtrials = bg['dec'][dec]
-        sigtrials = sig['gamma'][gamma]['cutoff_TeV'][cutoff]['dec'][dec]['nsig']
-        
-        trials = sigtrials
-        trials[0.0] = bgtrials
-        n_sigs = sorted(list(trials.keys()))
-        allt = [trials[n_sig] for n_sig in n_sigs]
-
-        for (n_sig, t) in zip(n_sigs, allt):
-            t['ntrue'] = np.repeat(n_sig, len(t))
-        allt = cy.utils.Arrays.concatenate(allt)
-
-        dns = np.mean(np.diff(n_sigs))
-        ns_bins = np.r_[n_sigs - 0.5*dns, n_sigs[-1] + 0.5*dns]
-        expect_kw = dict(color='C0', ls='--', lw=1, zorder=-10)
-        expect_gamma = gamma
-     
-        ax = axs[0]
-        h = hl.hist((allt.ntrue, allt.ns), bins=(ns_bins, 100))
-        hl.plot1d(ax, h.contain_project(1),errorbands=True, drawstyle='default')
-
-        lim = ns_bins[[0, -1]]
-        ax.set_xlim(ax.set_ylim(lim))
-        ax.plot(lim, lim,  **expect_kw)
-        ax.set_aspect('equal')
-
-        ax = axs[1]
-        h = hl.hist((allt.ntrue, allt.gamma), bins=(ns_bins, 100))
-        hl.plot1d(ax, h.contain_project(1),errorbands=True,  drawstyle='default')
-        ax.axhline(expect_gamma, **expect_kw)
-        ax.set_xlim(axs[0].get_xlim())
-
-        for ax in axs:
-            ax.set_xlabel(r'$n_{inj}$')
-            ax.grid()
-        axs[0].set_ylabel(r'$n_s$')
-        axs[1].set_ylabel(r'$\gamma$')
-        #plt.legend()
-        plt.suptitle('Gamma: {} $\delta$: {}'.format(gamma, dec))
-
-        plt.tight_layout()
-        cy.plotting.saving(base_dir + '/plots/bias_plots' , 'bias_dec_{}_E{}'.format(dec, int(gamma * 100)))
-        plt.close()
+        np.save(base_dir + '/ps_sens_flux_E{}_{}.npy'.format(int(gamma * 100), fit_str), fluxs)
+        np.save(base_dir + '/ps_sens_nss_E{}_{}.npy'.format(int(gamma * 100), fit_str), ns)
+        np.save(base_dir + '/ps_sens_decs_E{}_{}.npy'.format(int(gamma * 100), fit_str), decs)
 
 @cli.command()
 @click.argument('temp')
@@ -469,22 +426,31 @@ def do_gp_trials (
             template = repo.get_template ('Fermi-LAT_pi0_map')
             gp_conf = {
                 'template' :   template,
-                'flux' :       cy.hyp.PowerLawFlux(2.5),
+                'flux' :       cy.hyp.PowerLawFlux(2.7),
                 'randomize' :  ['ra'],
-                'fitter_args': dict(gamma=2.5),
+                'fitter_args': dict(gamma=2.7),
                 'sigsub':      True,
                 'fast_weight': False,
                 'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
         elif temp == 'fermibubbles':
             template = repo.get_template ('Fermi_Bubbles_simple_map')
             gp_conf = {
-                'template':    template,
-                'randomize' :  ['ra'],
-                'flux':        cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
-                'fitter_args': dict(gamma=2.0),
-                'sigsub':      True,
-                'fast_weight': False,
-                'dir':         cy.utils.ensure_dir('{}/templates/fb'.format(state.base_dir))}
+                'template': template,
+                'randomize' : ['ra'],
+                #'flux':     cy.hyp.PowerLawFlux(2.0, energy_cutoff=cutoff_GeV),
+                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
+                    hkw=dict(bins=(
+                           np.linspace(-1,1, 20), 
+                           np.linspace(np.log10(500), 8.001, 20)
+                           )), 
+                    flux = cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
+                    features=['sindec', 'log10energy'],
+                    normalize_axes = ([1])), 
+                #'fitter_args': dict(gamma=2.0, energy_cutoff = cutoff_GeV),
+                'energy' : False,
+                'sigsub': True,
+                'fast_weight': False
+                }
         elif 'kra' in temp:
             if temp == 'kra5':
                 template, energy_bins = repo.get_template(
@@ -625,7 +591,11 @@ def do_gp_sens (
                 'template': template,
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
-                #'fitter_args' : dict(gamma=2.5),
+                #'randomize' : ['ra', cy.inj.DecRandomizer],
+                'sindec_bandwidth' : np.radians(5),
+                #'dec_rand_method' : 'gaussian_fixed',
+                #'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
+                #'dec_rand_pole_exlusion' : np.radians(8),
                 'update_bg' : True,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
@@ -660,13 +630,15 @@ def do_gp_sens (
         template_sens = tr.find_n_sig(
                         bg.isf_nsigma(5), 
                         0.5, #percent above threshold (0.5 for dp)
-                        n_sig_step=15,
+                        n_sig_step=50,
                         batch_size = n_trials / 3, 
                         tol = 0.02)
     
     if temp == 'pi0':
         template_sens['fluxE2_100TeV'] = tr.to_E2dNdE(template_sens['n_sig'], 
             E0 = 100 , unit = 1e3)
+        template_sens['fluxE2_100TeV_GeV'] = tr.to_E2dNdE(template_sens['n_sig'], 
+            E0 = 1e5 , unit = 1)
         template_sens['flux_100TeV'] = tr.to_dNdE(template_sens['n_sig'], 
             E0 = 100 , unit = 1e3)
         out_dir = cy.utils.ensure_dir(
@@ -674,13 +646,13 @@ def do_gp_sens (
             state.base_dir,temp, gamma))
     elif temp == 'fermibubbles':
         template_sens['fluxE2_100TeV'] = tr.to_E2dNdE(template_sens['n_sig'], 
-            E0 = 100 , unit = 1e3)
-        template_sens['flux_1GeV'] = tr.to_dNdE(template_sens['n_sig'], 
-            E0 = 1 , unit = 1)
+            E0 = 100 , unit = 1e3, flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV))
         template_sens['flux_100TeV'] = tr.to_dNdE(template_sens['n_sig'], 
-            E0 = 100 , unit = 1e3)
+            E0 = 100 , unit = 1e3, flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV))
+        template_sens['flux_1TeV'] = tr.to_dNdE(template_sens['n_sig'], 
+            E0 = 1 , unit = 1e3, flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV))
         out_dir = cy.utils.ensure_dir(
-            '{}/gp/{}/gamma/{}/cutoff/{}_TeV'.format(
+            '{}/gp/{}/gamma/{}/cutoff/{}_TeV/'.format(
             state.base_dir,temp, gamma, cutoff))
     else:
         template_sens['model_norm'] = tr.to_model_norm(template_sens['n_sig'])
@@ -689,7 +661,7 @@ def do_gp_sens (
             state.base_dir,temp))
 
     flush ()
-    
+    print(cutoff_GeV) 
     if nsigma == 0:
         out_file = out_dir + 'sens.npy'
     else: 
@@ -713,8 +685,8 @@ def do_gp_sens_erange (
         state, temp, n_trials,  seed, cpus, emin, emax, nsigma,
         cutoff, logging=True):
     """
-    Calculate for galactic plane templates including fermi bubbles
-    Recommend to use do_gp_trials for analysis level mass trial calculation
+    Same as do_gp_sens with an option to set the emin and emax, 
+    Usefull if you want to calculate the relavant 90% enegy range by varying these paramaters
     """
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -835,19 +807,173 @@ def do_gp_sens_erange (
     print ('-> {}'.format (out_file))                                                          
 
 @cli.command ()
+@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @pass_state
-def collect_gp_trials (state):
+def collect_gp_trials (state, inputdir):
     """
-    Collect all Background Trials and save in nested dict
+    Collect all Background and Signal Trials and save in nested dict
     """
-    bg = cy.bk.get_all (
-        '{}/gp/trials/{}/'.format (state.base_dir, state.ana_name),
-        'trials*npy',
-        merge=np.concatenate, post_convert=cy.utils.Arrays)
-    outfile = '{}/gp/gp.dict'.format (state.base_dir, state.ana_name)
-    print ('->', outfile)
-    with open (outfile, 'wb') as f:
-        pickle.dump (bg, f, -1)
+    templates = ['fermibubbles', 'pi0', 'kra5', 'kra50']
+    for template in templates:
+        print(template)
+        if inputdir:
+            indir = inputdir
+        else: 
+            indir = '{}/gp/trials/{}/{}/'.format(state.base_dir, state.ana_name, template) 
+        bg = cy.bk.get_all (
+            indir,
+            'trials*npy',
+            merge=np.concatenate, post_convert=cy.utils.Arrays)
+        outfile = '{}/gp/trials/{}/{}/trials.dict'.format (state.base_dir, state.ana_name, template)
+        print ('->', outfile)
+        with open (outfile, 'wb') as f:
+            pickle.dump (bg, f, -1)
+
+@cli.command ()
+@click.option ('--template', default=None, type=str, 
+    help='Only calculate for a particular template, default is all')
+@click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
+@click.option ('--fit/--nofit', default=False, help = 'Fit the bkg dist to a chi2 or not?')
+@click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@pass_state
+def find_gp_n_sig(state,template, nsigma, fit, verbose):
+    """
+    Calculate the Sensitvity or discovery potential once bg and sig files are collected
+    Does all stacking catalogs
+    """
+    cutoff = None
+    this_dir = os.path.dirname(os.path.abspath(__file__))
+    ana = state.ana
+    flux = []
+    def find_n_sig_gp(template, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
+        # get signal trials, background distribution, and trial runner
+        if cutoff == None:
+            cutoff = np.inf
+            cutoff_GeV = np.inf
+        else:
+            cutoff_GeV = 1e3 * cutoff
+        if verbose:
+            print(gamma, cutoff)
+        if template == 'fermibubbles':
+            sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff,  'nsig')
+        else:
+            sig_trials = cy.bk.get_best(sig, 'poisson',  'nsig')
+        b = sig_trials[0.0]['ts']
+        if verbose:
+            print(b)
+        def get_tr(temp, cpus=1):
+            if temp == 'pi0':
+                template = repo.get_template ('Fermi-LAT_pi0_map')
+                gp_conf = {
+                    'template' :   template,
+                    'flux' :       cy.hyp.PowerLawFlux(2.7),
+                    'randomize' :  ['ra'],
+                    'fitter_args': dict(gamma=2.7),
+                    'sigsub':      True,
+                    'fast_weight': False,
+                    'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
+            elif temp == 'fermibubbles':
+                template = repo.get_template ('Fermi_Bubbles_simple_map')
+                gp_conf = {
+                    'template':    template,
+                    'randomize' :  ['ra'],
+                    'flux':        cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
+                    'fitter_args': dict(gamma=2.0),
+                    'sigsub':      True,
+                    'fast_weight': False,
+                    'dir':         cy.utils.ensure_dir('{}/templates/fb'.format(state.base_dir))}
+            elif 'kra' in temp:
+                if temp == 'kra5':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
+                    kra_flux = cy.hyp.BinnedFlux(
+                        bins_energy=energy_bins,  
+                        flux=template.sum(axis=0))
+                    template_dir =  cy.utils.ensure_dir('{}/templates/kra5'.format(state.base_dir))
+                elif temp =='kra50':
+                    template, energy_bins = repo.get_template(
+                              'KRA-gamma_maps_energies', per_pixel_flux=True)
+                    kra_flux = cy.hyp.BinnedFlux(
+                        bins_energy=energy_bins,  
+                        flux=template.sum(axis=0))
+                    template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
+                gp_conf = {
+                    'template': template,
+                    'bins_energy': energy_bins,
+                    'randomize' : ['ra'],
+                    'update_bg' : True,
+                    'sigsub': True,
+                    cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
+                        hkw=dict(bins=(
+                               np.linspace(-1,1, 20), 
+                               np.linspace(np.log10(500), 8.001, 20)
+                               )), 
+                        flux=kra_flux,
+                        features=['sindec', 'log10energy'],
+                        normalize_axes = ([1])), 
+                    'energy' : False,
+                    'dir': template_dir}
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+            return tr
+        tr = get_tr(template)
+        if nsigma !=None:
+            #print('sigma = {}'.format(nsigma))
+            if fit:
+                ts = cy.dists.Chi2TSD(b).isf_nsigma(nsigma)
+            else:
+                ts = cy.dists.TSD(b).isf_nsigma(nsigma)
+        else:
+            #print('Getting sensitivity')
+            ts = cy.dists.TSD(b).median()
+        if verbose:
+            print(ts)
+
+        result = tr.find_n_sig(ts, beta, max_batch_size=0, logging=verbose, trials=sig_trials)
+        if template == 'pi0':
+            flux = tr.to_E2dNdE(result, E0 = 100 , unit = 1e3)
+        elif template == 'fermibubbles':
+            flux  = tr.to_dNdE(result, 
+                E0 = 1 , unit = 1e3, flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV))
+        else:
+            flux = tr.to_model_norm(result)
+        # return flux
+        if verbose:
+            print(ts, beta, result['n_sig'], flux)
+        return flux
+
+    if nsigma:
+        beta = 0.5
+    else:
+        beta = 0.9
+    if template:
+        templates = [template]
+    else:
+        templates = ['fermibubbles', 'pi0', 'kra5', 'kra50']
+    for template in templates:
+        base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
+        sigfile = '{}/trials.dict'.format (base_dir)
+        sig = np.load (sigfile, allow_pickle=True)
+        print('Template: {}'.format(template))
+        if template == 'fermibubbles':
+            for cutoff in [50,100,500,np.inf]:
+                f = find_n_sig_gp(template, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=False)
+                flux.append(f) 
+                print('Cutoff: {} TeV'.format(cutoff))
+                print('Flux: {:.8}'.format(f))    
+            print(flux)
+            if nsigma:
+                np.save(base_dir + '/{}_dp_{}sigma_flux.npy'.format(template, nsigma), flux)
+            else:
+                np.save(base_dir + '/{}_sens_flux.npy'.format(template), flux)
+
+        else:
+            f = find_n_sig_gp(template, nsigma=nsigma,beta =beta, cutoff=cutoff, verbose=False)
+            print('Flux: {:.8}'.format(f))     
+            if nsigma:
+                np.save(base_dir + '/{}_dp_{}sigma_flux.npy'.format(template, nsigma), f)
+            else:
+                np.save(base_dir + '/{}_sens_flux.npy'.format(template), f)
+
 
 @cli.command()
 @click.option('--n-trials', default=1000, type=int)
@@ -922,10 +1048,11 @@ def do_stacking_trials (
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--nsigma', default=None, type=float)
 @pass_state
 def do_stacking_sens (
         state, n_trials, gamma, cutoff, catalog,
-        seed, cpus, logging=True):
+        seed, cpus, nsigma,logging=True):
     """
     Do senstivity calculation for stacking catalog.  Useful for quick numbers, not for
     analysis level numbers of trials
@@ -964,13 +1091,20 @@ def do_stacking_sens (
       n_trials, n_sig=0, poisson=False, seed=seed, logging=logging))
     t1 = now ()
     print ('Finished bg trials at {} ...'.format (t1))
-
-    sens = tr.find_n_sig(
-                    bg.median(), 
-                    0.9, #percent above threshold (0.9 for sens)
-                    n_sig_step=5,
-                    batch_size = n_trials / 3, 
-                    tol = 0.02)
+    if nsigma:
+        sens = tr.find_n_sig(
+                        bg.isf_nsigma(nsigma), 
+                        0.5, #percent above threshold (0.5 for dp)
+                        n_sig_step=25,
+                        batch_size = n_trials / 3, 
+                        tol = 0.02)
+    else:
+        sens = tr.find_n_sig(
+                        bg.median(), 
+                        0.9, #percent above threshold (0.9 for sens)
+                        n_sig_step=5,
+                        batch_size = n_trials / 3, 
+                        tol = 0.02)
     sens['flux'] = tr.to_E2dNdE(sens['n_sig'], E0=100, unit=1e3)
     print ('Finished sens at {} ...'.format (t1))
     print (t1 - t0, 'elapsed.')
@@ -1032,12 +1166,11 @@ def collect_stacking_sig (state):
         print ('->', outfile)
 
 @cli.command ()
-@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
-@click.option ('--gamma', default=2.0, type=float, help = 'Spectrum to Inject')
+@click.option ('--fit/--nofit', default=True, help='Use chi2fit')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @pass_state
-def find_stacking_n_sig(state, gamma, nsigma,verbose):
+def find_stacking_n_sig(state, nsigma, fit, verbose):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     Does all stacking catalogs
@@ -1045,17 +1178,6 @@ def find_stacking_n_sig(state, gamma, nsigma,verbose):
     cutoff = None
     this_dir = os.path.dirname(os.path.abspath(__file__))
     ana = state.ana
-
-    #snrcat = np.load('../catalogs/snr_ESTES_12.pickle', allow_pickle=True)
-    #pwncat = np.load('../catalogs/pwn_ESTES_12.pickle', allow_pickle=True)
-    #unidcat = np.load('../catalogs/unid_ESTES_12.pickle', allow_pickle=True)
-    
-    #ana = state.ana
-    #base_dir = state.base_dir + '/stacking/trials/DNNC'
-    #sigfile = '{}/{}_sig.dict'.format (base_dir)
-    #sig = np.load (sigfile, allow_pickle=True)
-    #bgfile = '{}/{}_bg.dict'.format (base_dir)
-    #bg = np.load (bgfile, allow_pickle=True)
 
     def find_n_sig_cat(src, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
         # get signal trials, background distribution, and trial runner
@@ -1087,7 +1209,10 @@ def find_stacking_n_sig(state, gamma, nsigma,verbose):
             # determine ts threshold
         if nsigma !=None:
             #print('sigma = {}'.format(nsigma))
-            ts = b.isf_nsigma(nsigma)
+            if fit:
+                ts = cy.dists.Chi2TSD(b).isf_nsigma(nsigma)
+            else:
+                ts = cy.dists.TSD(b).isf_nsigma(nsigma)
         else:
             #print('Getting sensitivity')
             ts = cy.dists.Chi2TSD(b).median()
@@ -1109,7 +1234,7 @@ def find_stacking_n_sig(state, gamma, nsigma,verbose):
         beta = 0.5
     else:
         beta = 0.9
-    cats = ['pwn', 'unid', 'snr']
+    cats = ['snr', 'pwn', 'unid']
     for cat in cats:
         
         base_dir = state.base_dir + '/stacking/'
@@ -1122,7 +1247,7 @@ def find_stacking_n_sig(state, gamma, nsigma,verbose):
         src = cy.utils.Sources(ra = srcs['ra_deg'], dec=srcs['dec_deg'], deg=True)
         for gamma in sig['gamma'].keys():
             print ('Gamma: {}'.format(gamma))
-            f = find_n_sig_cat(src, gamma=gamma,nsigma=nsigma, cutoff=cutoff, verbose=False)
+            f = find_n_sig_cat(src, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=False)
             print('Sensitvity Flux: {:.8}'.format(f))     
             fluxs.append(f)
             if nsigma:

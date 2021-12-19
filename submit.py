@@ -76,8 +76,9 @@ def submit_do_ps_trials (
     sub = Submitter (job_dir=job_dir, memory=5, 
         max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
+    #reqs = '(Machine != "cobol97.private.pa.umd.edu") & (Machine != "cobol94.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
-    dec_degs = dec_degs or np.r_[-89:+89.01:2]
+    dec_degs = dec_degs or np.r_[-25:+25:2]
     for dec_deg in dec_degs:
         for n_sig in n_sigs:
             for i in range (n_jobs):
@@ -97,7 +98,7 @@ def submit_do_ps_trials (
     sub.dry = dry
     print(hostname)
     if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
+        sub.submit_condor00 (commands, labels) #, reqs=reqs)
     else:
         sub.submit_npx4 (commands, labels)
 
@@ -146,6 +147,85 @@ def submit_do_ps_sens (
         sub.submit_npx4 (commands, labels)
 
 @cli.command ()
+@click.option ('--n-trials', default=100, type=int)
+@click.option ('--n-jobs', default=10, type=int)
+@click.option ('--gamma', default=2, type=float)
+@click.option ('--dry/--nodry', default=False)
+@click.option ('--seed', default=0)
+@pass_state                                                                                                               
+def submit_do_mtr_trials (
+        state, n_trials, n_jobs,  gamma,  dry, seed):
+    ana_name = state.ana_name
+    T = time.time ()
+    job_basedir = state.job_basedir 
+    job_dir = '{}/{}/mtr_bkg/T_{:17.6f}'.format (
+        job_basedir, ana_name,  T)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
+    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    commands, labels = [], []
+    this_script = os.path.abspath (__file__)
+    trial_script = os.path.abspath('mtr.py')
+    for i in range (n_jobs):
+        s = i + seed
+        fmt = '{} do-correlated-trials-sourcelist  --ntrials {}' \
+                            ' --seed={}'
+        command = fmt.format ( trial_script,  n_trials, s)
+        fmt = 'csky_sens_{:07d}_' \
+                'seed_{:04d}'
+        label = fmt.format (
+                n_trials, 
+                s)
+        commands.append (command)
+        labels.append (label)
+    sub.dry = dry
+    if 'condor00' in hostname:
+        sub.submit_condor00 (commands, labels)
+    else:
+        sub.submit_npx4 (commands, labels)
+
+@cli.command ()
+@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--gamma', default=2, type=float)
+@click.option ('--dry/--nodry', default=False)
+@click.option ('--seed', default=0)
+@pass_state                                                                                                               
+def submit_do_mtr_bkg (
+        state, n_trials,  gamma,  dry, seed):
+    ana_name = state.ana_name
+    T = time.time ()
+    job_basedir = state.job_basedir 
+    job_dir = '{}/{}/mtr_bkg/T_{:17.6f}'.format (
+        job_basedir, ana_name,  T)
+    sub = Submitter (job_dir=job_dir, memory=5, 
+        max_jobs=1000, config = 'DNNCascade/submitter_config')
+    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    commands, labels = [], []
+    this_script = os.path.abspath (__file__)
+    trial_script = os.path.abspath('mtr.py')
+    nsources = 109
+    for source in range(nsources):
+        s =  seed
+        fmt = '{} do-bkg-trials  --ntrials {}' \
+                            ' --sourcenum {}' \
+                            ' --seed={}'
+        command = fmt.format ( trial_script,  n_trials,
+                               source, s)
+        fmt = 'csky_sens_{:07d}_' \
+                'source_{}_seed_{:04d}'
+        label = fmt.format (
+                n_trials, 
+                source, s)
+        commands.append (command)
+        labels.append (label)
+    sub.dry = dry
+    if 'condor00' in hostname:
+        sub.submit_condor00 (commands, labels)
+    else:
+        sub.submit_npx4 (commands, labels)
+
+
+@cli.command ()
 @click.argument ('temp')
 @click.option ('--n-trials', default=10000, type=int)
 @click.option ('--n-jobs', default=10, type=int)
@@ -168,6 +248,7 @@ def submit_do_gp_trials (
     sub = Submitter (job_dir=job_dir, memory=5, 
         max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
+    reqs = '(Machine != "cobol93.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
     print(n_sigs)
     for n_sig in n_sigs:
@@ -187,7 +268,7 @@ def submit_do_gp_trials (
             labels.append (label)
     if 'condor00' in hostname:
         print('submitting from condor00')
-        sub.submit_condor00 (commands, labels)
+        sub.submit_condor00 (commands, labels, reqs=reqs)
     else:
         sub.submit_npx4 (commands, labels)
 
