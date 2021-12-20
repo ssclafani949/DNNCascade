@@ -5,7 +5,6 @@ import numpy as np
 import healpy as hp
 import pickle, datetime, socket
 import histlite as hl
-import astropy
 now = datetime.datetime.now
 import matplotlib.pyplot as plt
 import click, sys, os, time

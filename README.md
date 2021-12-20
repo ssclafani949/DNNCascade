@@ -9,6 +9,7 @@ Requirements:
 * click (any version should work, but ran with version 7.1.2)
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
+A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
 
 Generated trials have been saved to `/data/ana/analyses/NuSources/2021_DNNCascade_analyses/baseline_analysis`
 
