@@ -1,4 +1,5 @@
 eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
-. /data/i3home/ssclafani/venvs/venv-3/bin/activate
-#source /data/i3home/ssclafani/venvs/venv-3/bin/activate'
+
+#. /data/i3home/ssclafani/venvs/venv-3/bin/activate
+source /home/ssclafani/.vens/py3_venv/bin/activate
 

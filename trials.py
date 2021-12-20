@@ -181,10 +181,6 @@ def do_ps_trials (
     print('Seed: {}'.format(seed))
     dec = np.radians(dec_deg)
     replace = False 
-    if replace:
-        replace_str = 'replace'
-    else:
-        replace_str = 'noreplace'
     sindec = np.sin(dec)
     t0 = now ()
     ana = state.ana
@@ -200,7 +196,6 @@ def do_ps_trials (
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
-            'bg_replace' : replace,
             'randomize' : ['ra', cy.inj.DecRandomizer],
             'sindec_bandwidth' : np.radians(5),
             'dec_rand_method' : 'gaussian_fixed',
@@ -211,7 +206,6 @@ def do_ps_trials (
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
     tr , src = get_tr(sindec, gamma, cpus)
-    #print(cy.describallt0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
     trials = tr.get_many_fits (
@@ -238,11 +232,11 @@ def do_ps_trials (
 
 
 @cli.command ()
-@click.option ('--fit/--nofit', default=True, help = 'Chi2 Fit')
-@click.option ('--dist/--nodist', default=False, help = 'Disable TS Distribution Fit')
-@click.option ('-n', '--n', default=0, type=int)
+@click.option ('--fit/--nofit', default=True, help = 'Chi2 Fit or Not')
+@click.option ('--dist/--nodist', default=True, help = 'Distribution is TSD or leave in arrays')
+@click.option ('--inputdir', default=None, help = 'Option to set a read directory that isnt the base directory')
 @pass_state
-def collect_ps_bg (state, fit,  dist, n):
+def collect_ps_bg (state, fit,  dist, inputdir):
     """
     Collect all Background Trials and save in nested dict
     """
@@ -261,8 +255,11 @@ def collect_ps_bg (state, fit,  dist, n):
         state.base_dir, state.ana_name,  suffix)
     bg = {}
     bgs = {}
-    bg_dir = '{}/ps/trials/{}/bg'.format (
-        state.base_dir, state.ana_name)
+    if inputdir:
+        bg_dir = inputdir
+    else: 
+        bg_dir = '{}/ps/trials/{}/bg'.format (
+            state.base_dir, state.ana_name)
     for dec_deg in dec_degs:
         key = '{:+08.3f}'.format (dec_deg)
         flush ()
@@ -283,12 +280,16 @@ def collect_ps_bg (state, fit,  dist, n):
         pickle.dump (bg, f, -1)
 
 @cli.command ()
+@click.option ('--inputdir', default=None, help = 'Option to set a read directory that isnt the base directory')
 @pass_state
-def collect_ps_sig (state):
+def collect_ps_sig (state, inputdir):
     """
     Collect all Signal Trials and save in nested dict
     """
-    sig_dir = '{}/ps/trials/{}/sigsub/poisson'.format (state.base_dir, state.ana_name)
+    if inputdir:
+        sig_dir = inputdir
+    else: 
+        sig_dir = '{}/ps/trials/{}/sigsub/poisson'.format (state.base_dir, state.ana_name)
     sig = cy.bk.get_all (
         sig_dir, '*.npy', merge=np.concatenate, post_convert=cy.utils.Arrays)
     outfile = '{}/ps/trials/{}/sig.dict'.format (state.base_dir, state.ana_name)
@@ -303,16 +304,21 @@ def collect_ps_sig (state):
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @click.option ('--fit/--nofit', default=False, help = 'Fit the bkg dist to a chi2 or not?')
+@click.option ('--inputdir', default=None, help = 'Option to set a read directory that isnt the base directory')
 @pass_state
-def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit):
+def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     """
     ana = state.ana
+    if inputdir:
+        indir = inputdir
+    else: 
+        indir = state.base_dir + '/ps/trials/DNNC'
     base_dir = state.base_dir + '/ps/trials/DNNC'
-    sigfile = '{}/sig.dict'.format (base_dir)
+    sigfile = '{}/sig.dict'.format (indir)
     sig = np.load (sigfile, allow_pickle=True)
-    bgfile = '{}/bg.dict'.format (base_dir)
+    bgfile = '{}/bg.dict'.format (indir)
     bg = np.load (bgfile, allow_pickle=True)
     decs = list(bg['dec'].keys())[:-1]
     def get_n_sig(dec, gamma, beta=0.9, nsigma=None, cutoff=cutoff, verbose=verbose):
@@ -334,7 +340,6 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit):
             'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
             'update_bg': True,
             'sigsub' :  True,
-            'bg_replace' : True,
             'randomize' : ['ra', cy.inj.DecRandomizer],
             'sindec_bandwidth' : np.radians(5),
             'dec_rand_method' : 'gaussian_fixed',
@@ -437,7 +442,6 @@ def do_gp_trials (
             gp_conf = {
                 'template': template,
                 'randomize' : ['ra'],
-                #'flux':     cy.hyp.PowerLawFlux(2.0, energy_cutoff=cutoff_GeV),
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
                     hkw=dict(bins=(
                            np.linspace(-1,1, 20), 
@@ -446,7 +450,6 @@ def do_gp_trials (
                     flux = cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
                     features=['sindec', 'log10energy'],
                     normalize_axes = ([1])), 
-                #'fitter_args': dict(gamma=2.0, energy_cutoff = cutoff_GeV),
                 'energy' : False,
                 'sigsub': True,
                 'fast_weight': False
@@ -556,7 +559,6 @@ def do_gp_sens (
             gp_conf = {
                 'template': template,
                 'randomize' : ['ra'],
-                #'flux':     cy.hyp.PowerLawFlux(2.0, energy_cutoff=cutoff_GeV),
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
                     hkw=dict(bins=(
                            np.linspace(-1,1, 20), 
@@ -565,7 +567,6 @@ def do_gp_sens (
                     flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
                     features=['sindec', 'log10energy'],
                     normalize_axes = ([1])), 
-                #'fitter_args': dict(gamma=2.0, energy_cutoff = cutoff_GeV),
                 'energy' : False,
                 'sigsub': True,
                 'fast_weight': False
@@ -591,11 +592,7 @@ def do_gp_sens (
                 'template': template,
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
-                #'randomize' : ['ra', cy.inj.DecRandomizer],
                 'sindec_bandwidth' : np.radians(5),
-                #'dec_rand_method' : 'gaussian_fixed',
-                #'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-                #'dec_rand_pole_exlusion' : np.radians(8),
                 'update_bg' : True,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
@@ -698,8 +695,6 @@ def do_gp_sens_erange (
     mask = (a.sig.true_energy > emin) & (a.sig.true_energy < emax)
     ana_lim[0].sig = a.sig[mask]
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
-    import healpy as hp
-    hp.disable_warnings()
     cutoff_GeV = cutoff * 1e3
     def get_tr(temp, ana):
         if temp == 'pi0':
@@ -707,8 +702,8 @@ def do_gp_sens_erange (
             gp_conf = {
                 'template': template,
                 'randomize' : ['ra'],
-                'flux':     cy.hyp.PowerLawFlux(2.5),
-                'fitter_args': dict(gamma=2.5),
+                'flux':     cy.hyp.PowerLawFlux(2.7),
+                'fitter_args': dict(gamma=2.7),
                 'sigsub': True,
                 'fast_weight': True,
                 'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
@@ -717,10 +712,18 @@ def do_gp_sens_erange (
             gp_conf = {
                 'template': template,
                 'randomize' : ['ra'],
-                'flux':     cy.hyp.PowerLawFlux(2.0, energy_cutoff=cutoff_GeV),
-                'fitter_args': dict(gamma=2.0),
+                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
+                    hkw=dict(bins=(
+                           np.linspace(-1,1, 20), 
+                           np.linspace(np.log10(500), 8.001, 20)
+                           )), 
+                    flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
+                    features=['sindec', 'log10energy'],
+                    normalize_axes = ([1])), 
+                'energy' : False,
                 'sigsub': True,
-                'fast_weight': True}
+                'fast_weight': False
+                }
         elif 'kra' in temp:
             if temp == 'kra5':
                 template, energy_bins = repo.get_template(
@@ -742,7 +745,6 @@ def do_gp_sens_erange (
                 'template': template,
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
-                #'fitter_args' : dict(gamma=2.5),
                 'update_bg' : True,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
@@ -835,14 +837,13 @@ def collect_gp_trials (state, inputdir):
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
 @click.option ('--fit/--nofit', default=False, help = 'Fit the bkg dist to a chi2 or not?')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @pass_state
-def find_gp_n_sig(state,template, nsigma, fit, verbose):
+def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     Does all stacking catalogs
     """
-    cutoff = None
-    this_dir = os.path.dirname(os.path.abspath(__file__))
     ana = state.ana
     flux = []
     def find_n_sig_gp(template, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
@@ -950,8 +951,12 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose):
     else:
         templates = ['fermibubbles', 'pi0', 'kra5', 'kra50']
     for template in templates:
+        if inputdir:
+            indir = inputdir
+        else:
+            indir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
         base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
-        sigfile = '{}/trials.dict'.format (base_dir)
+        sigfile = '{}/trials.dict'.format (indir)
         sig = np.load (sigfile, allow_pickle=True)
         print('Template: {}'.format(template))
         if template == 'fermibubbles':
@@ -1001,7 +1006,6 @@ def do_stacking_trials (
         allow_pickle=True)
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
-    dir = cy.utils.ensure_dir ('{}/{}/'.format (state.base_dir, catalog))
     def get_tr(src, gamma, cpus):
         conf = {
             'src' : src,
@@ -1068,7 +1072,7 @@ def do_stacking_sens (
         allow_pickle=True)
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
-    dir = cy.utils.ensure_dir ('{}/stacking/sens/{}/'.format (state.base_dir, catalog))
+    out_dir = cy.utils.ensure_dir ('{}/stacking/sens/{}/'.format (state.base_dir, catalog))
     def get_tr(src, gamma, cpus):
         conf = {
             'src' : src,
@@ -1110,19 +1114,28 @@ def do_stacking_sens (
     print (t1 - t0, 'elapsed.')
     print(sens['flux'])
     flush ()
+    if nsigma == 0:
+        out_file = out_dir + 'sens.npy'
+    else: 
+        out_file = out_dir + 'dp{}.npy'.format(nsigma)
+    np.save(out_file, sens)
 
 @cli.command ()
 @click.option ('--dist/--nodist', default=False)
+@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @pass_state
-def collect_stacking_bg (state, dist):
+def collect_stacking_bg (state, dist, inputdir):
     """
     Collect all background trials for stacking into one dictionary for calculation of sensitvity
     """
     bg = {'cat': {}}
     cats = ['snr' , 'pwn', 'unid']
     for cat in cats:
-        bg_dir = cy.utils.ensure_dir ('{}/stacking/trials/{}/catalog/{}/bg/'.format (
-            state.base_dir, state.ana_name, cat))
+        if inputdir:
+            bg_dir = inputdir
+        else:
+            bg_dir = cy.utils.ensure_dir ('{}/stacking/trials/{}/catalog/{}/bg/'.format (
+                state.base_dir, state.ana_name, cat))
         print(bg_dir)
         print ('\r{} ...'.format (cat) + 10 * ' ', end='')
         flush ()
@@ -1148,15 +1161,19 @@ def collect_stacking_bg (state, dist):
             pickle.dump (bg, f, -1)
 
 @cli.command ()
+@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @pass_state
-def collect_stacking_sig (state):
+def collect_stacking_sig (state, inputdir):
     """
     Collect all signal trials for stacking into one dictionary for calculation of sensitvity
     """
     cats = 'snr pwn unid'.split ()
     for cat in cats:
-        sig_dir = '{}/stacking/trials/{}/catalog/{}/poisson'.format (
-            state.base_dir, state.ana_name, cat)
+        if inputdir:
+            sig_dir = inputdir
+        else:
+            sig_dir = '{}/stacking/trials/{}/catalog/{}/poisson'.format (
+                state.base_dir, state.ana_name, cat)
         sig = cy.bk.get_all (
             sig_dir, '*.npy', merge=np.concatenate, post_convert=cy.utils.Arrays)
         outfile = '{}/stacking/{}_sig.dict'.format (
@@ -1168,9 +1185,10 @@ def collect_stacking_sig (state):
 @cli.command ()
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
 @click.option ('--fit/--nofit', default=True, help='Use chi2fit')
+@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @pass_state
-def find_stacking_n_sig(state, nsigma, fit, verbose):
+def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     Does all stacking catalogs
@@ -1236,11 +1254,14 @@ def find_stacking_n_sig(state, nsigma, fit, verbose):
         beta = 0.9
     cats = ['snr', 'pwn', 'unid']
     for cat in cats:
-        
+        if inputdir:
+            indir = iputdir
+        else:
+            indir = state.base_dir + '/stacking/'
         base_dir = state.base_dir + '/stacking/'
-        sigfile = '{}/{}_sig.dict'.format (base_dir, cat)
+        sigfile = '{}/{}_sig.dict'.format (indir, cat)
         sig = np.load (sigfile, allow_pickle=True)
-        bgfile = '{}/{}_bg.dict'.format (base_dir, cat)
+        bgfile = '{}/{}_bg.dict'.format (indir, cat)
         bg = np.load (bgfile, allow_pickle=True)
         print('CATALOG: {}'.format(cat))
         srcs= np.load('{}/catalogs/{}_ESTES_12.pickle'.format(this_dir, cat), allow_pickle=True)
