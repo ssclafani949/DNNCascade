@@ -15,21 +15,25 @@ Generated trials have been saved to `/data/ana/analyses/NuSources/2021_DNNCascad
 
 File Structure:
 
-Config.py
+config.py
 
   This script sets the `job_base` which can be left as baseline_analysis.  It also sets different directories to save everything, and is the one place where all the trial_runner configurations are defined. These can be adjusted but will default by creating `/data/user/USERNAME/data/analyses/JOB_BASE/` directory where all files will be read and saved unless otherwise specified.
   
 trials.py
-  This script has functions to run trials or compute sensitivity, for PS, Stacking and Templates, these can be done at the individiual trial level, using the `do-X-trials` functions, or computing a senstivity from scratch using `do-X-sens` .  The sens functions are useful for quick checks that do not require a lot of background trials.
+
+ This script has functions to run trials or compute sensitivity, for PS, Stacking and Templates, these can be done at the individiual trial level, using the `do-X-trials` functions, or computing a senstivity from scratch using `do-X-sens` .  The sens functions are useful for quick checks that do not require a lot of background trials.
   
 submit.py
+
   This script maps to the functions in `trials.py` and controls the submission script writing for each function.  If you are using NPX or UMD cluster you can call these functions from `submit-1` on NPX and it will create the relavant dagman and submit this.  
   
 submitter_config
-  This is a small config file that is run on each job that is submitted.  It currently loads cvmfs and then loads a virtual environment with relavant software
+
+This is a small config file that is run on each job that is submitted.  It currently loads cvmfs and then loads a virtual environment with relavant software
  
- unblind.py
-  The script that will be used to unblind and run correlated trials.
+unblind.py
+
+ The script that will be used to unblind and run correlated trials.
 
 Setup: 
 Trials are run either on cobalt, npx, or on local machines with cvmfs and virtual environment.  IceRec or combo is not required.  To setup call cvmfs via `source /cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh` while this is loaded create a virtual environment to insall packages using `python -m venv /path/to/virtualenvironemnt`
