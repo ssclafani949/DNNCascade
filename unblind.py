@@ -144,60 +144,16 @@ def do_gp_trials (
     print('Seed: {}'.format(seed))
     ana = state.ana
     cutoff_GeV = cutoff * 1e3
+
     def get_tr(temp):
-        if temp == 'pi0':
-            template = repo.get_template ('Fermi-LAT_pi0_map')
-            gp_conf = {
-                'template' :   template,
-                'flux' :       cy.hyp.PowerLawFlux(2.5),
-                'randomize' :  ['ra'],
-                'fitter_args': dict(gamma=2.5),
-                'sigsub':      True,
-                'fast_weight': False,
-                'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
-        elif temp == 'fermibubbles':
-            template = repo.get_template ('Fermi_Bubbles_simple_map')
-            gp_conf = {
-                'template':    template,
-                'randomize' :  ['ra'],
-                'flux':        cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
-                'fitter_args': dict(gamma=2.0),
-                'sigsub':      True,
-                'fast_weight': False,
-                'dir':         cy.utils.ensure_dir('{}/templates/fb'.format(state.base_dir))}
-        elif 'kra' in temp:
-            if temp == 'kra5':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir =  cy.utils.ensure_dir('{}/templates/kra5'.format(state.base_dir))
-            elif temp =='kra50':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
-            gp_conf = {
-                'template': template,
-                'bins_energy': energy_bins,
-                'randomize' : ['ra'],
-                'update_bg' : True,
-                'sigsub': True,
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux=kra_flux,
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False,
-                'dir': template_dir}
-        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        gp_conf = cg.get_gp_conf(
+            temp=temp,
+            cutoff_GeV=cutoff_GeV,
+            base_dir=state.base_dir,
+        )
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
+
     tr = get_tr(temp)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
