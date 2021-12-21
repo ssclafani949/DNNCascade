@@ -38,11 +38,9 @@ def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
     src : csky.utils.sources
         The sources.
     gamma : float
-        The gamma value to use. This may only be set for Pi0 or Fermi Bubbles.
-        Defaults to 2.7 for Pi0 and 2.0 for Fermi Bubbles.
+        The spectral index gamma to use for the powerlaw flux.
     cutoff_GeV : float, optional
-        The cutoff value for the powerlaw spectrum used for Fermi Bubble flux.
-        This is only relevant for the Fermi Bubble template.
+        The cutoff value for the powerlaw flux.
 
     Returns
     -------
@@ -74,8 +72,8 @@ def get_gp_conf(
         The name of the template to use. Must be one of:
         ['pi0', 'fermibubbles', 'kra5', 'kra50']
     gamma : float, optional
-        The gamma value to use. This may only be set for Pi0 or Fermi Bubbles.
-        Defaults to 2.7 for Pi0 and 2.0 for Fermi Bubbles.
+        The spectral index to use. This may only be set for Pi0 or
+        Fermi Bubbles. Defaults to 2.7 for Pi0 and 2.0 for Fermi Bubbles.
     cutoff_GeV : float, optional
         The cutoff value for the powerlaw spectrum used for Fermi Bubble flux.
         This is only relevant for the Fermi Bubble template.
