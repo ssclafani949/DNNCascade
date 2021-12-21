@@ -81,23 +81,13 @@ def unblind_sourcelist (
     print(truth)
     ana = state.ana
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
+
     def get_tr(dec, ra, cpus, truth):
         src = cy.utils.sources(ra, dec, deg=False)
-        
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(2.0),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
- 
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus, TRUTH=TRUTH)
         return tr, src
+
     for source in sourcelist:
         print('Source {}'.format(src[0]))
         
@@ -214,17 +204,7 @@ def do_stacking_trials (
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/{}/'.format (state.base_dir, catalog))
     def get_tr(src, gamma, cpus):
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
     tr = get_tr(src, gamma, cpus)

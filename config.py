@@ -30,6 +30,40 @@ else:
 # Define csky config settings for trial runners
 # ---------------------------------------------
 
+def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
+    """Get csky trial runner config for Point Source Likelihood
+
+    Parameters
+    ----------
+    src : csky.utils.sources
+        The sources.
+    gamma : float
+        The gamma value to use. This may only be set for Pi0 or Fermi Bubbles.
+        Defaults to 2.7 for Pi0 and 2.0 for Fermi Bubbles.
+    cutoff_GeV : float, optional
+        The cutoff value for the powerlaw spectrum used for Fermi Bubble flux.
+        This is only relevant for the Fermi Bubble template.
+
+    Returns
+    -------
+    dict
+        The config, which may be passed to csky.get_trial_runner
+    """
+    conf = {
+        'src': src,
+        'flux': cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV),
+        'update_bg': True,
+        'sigsub':  True,
+        'randomize': ['ra', cy.inj.DecRandomizer],
+        'sindec_bandwidth': np.radians(5),
+        'dec_rand_method': 'gaussian_fixed',
+        'dec_rand_kwargs': dict(randomization_width=np.radians(3)),
+        'dec_rand_pole_exlusion': np.radians(8)
+    }
+
+    return conf
+
+
 def get_gp_conf(
         temp, gamma=None, cutoff_GeV=np.inf, base_dir=base_dir, repo=repo):
     """Get csky trial runner config for Galactic Plane Template
@@ -39,10 +73,10 @@ def get_gp_conf(
     temp : str
         The name of the template to use. Must be one of:
         ['pi0', 'fermibubbles', 'kra5', 'kra50']
-    gamma : None, optional
+    gamma : float, optional
         The gamma value to use. This may only be set for Pi0 or Fermi Bubbles.
         Defaults to 2.7 for Pi0 and 2.0 for Fermi Bubbles.
-    cutoff_GeV : None, optional
+    cutoff_GeV : float, optional
         The cutoff value for the powerlaw spectrum used for Fermi Bubble flux.
         This is only relevant for the Fermi Bubble template.
     base_dir : str, optional

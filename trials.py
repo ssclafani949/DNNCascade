@@ -90,24 +90,18 @@ def do_ps_sens (
     ana = state.ana
     sindec = np.sin(np.radians(dec_deg))
     def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
+
         def get_tr(sindec, gamma, cpus):
             src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
             cutoff_GeV = cutoff * 1e3
-            conf = {
-               'src' : src,
-               'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-               'update_bg': True,
-               'sigsub' : sigsub, 
-               'mp_cpus' : cpus,
-               'bg_replace': True,
-               'randomize' : ['ra', cy.inj.DecRandomizer],
-               'sindec_bandwidth' : np.radians(5),
-               'dec_rand_method' : 'gaussian_fixed',
-               'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-               'dec_rand_pole_exlusion' : np.radians(8),
-               'mp_cpus' : cpus}
-            tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+            conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
+
+            # overwrite sigsub setting
+            conf['sigsub'] = sigsub
+
+            tr = cy.get_trial_runner(ana=ana, conf=conf, mp_cpus=cpus)
             return tr, src
+
         tr, src = get_tr(sindec, gamma, cpus)
         print('Performing BG Trails at RA: {}, DEC: {}'.format(src.ra_deg, src.dec_deg))
         bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=cpus))
@@ -187,23 +181,13 @@ def do_ps_trials (
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
     a = ana[0]
+
     def get_tr(sindec, gamma, cpus):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
- 
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
+
     tr , src = get_tr(sindec, gamma, cpus)
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -334,17 +318,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
         if verbose:
             print(b)
         src = cy.utils.sources(0, dec, deg=True)
-        conf = {
-            'src' : src, 
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf=conf)
             # determine ts threshold
         if nsigma !=None:
@@ -796,17 +770,7 @@ def do_stacking_trials (
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     def get_tr(src, gamma, cpus):
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
     tr = get_tr(src, gamma, cpus)
@@ -862,20 +826,12 @@ def do_stacking_sens (
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     out_dir = cy.utils.ensure_dir ('{}/stacking/sens/{}/'.format (state.base_dir, catalog))
+
     def get_tr(src, gamma, cpus):
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
+
     tr = get_tr(src, gamma, cpus)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
@@ -1000,18 +956,7 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
         b = bg
         if verbose:
             print(b)
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
-
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf=conf)
             # determine ts threshold
         if nsigma !=None:
@@ -1094,18 +1039,13 @@ def do_sky_scan_trials(state, poisson,
     ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
     t0 = now ()
     ana = state.ana
-    conf = {
-        'ana' : ana,
-        'sigsub' : True,
-        'update_bg' : True,
-        'flux' : cy.hyp.PowerLawFlux(gamma),
-        'randomize' : ['ra', cy.inj.DecRandomizer],
-        'sindec_bandwidth' : np.radians(5),
-        'dec_rand_method' : 'gaussian_fixed',
-        'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-        'dec_rand_pole_exlusion' : np.radians(8),
-        'mp_cpus' : cpus,
-        'extra_keep' : ['energy']}
+    conf = cg.get_ps_conf(src=None, gamma=gamma)
+    conf.pop('src')
+    conf.update({
+        'ana': ana,
+        'mp_cpus': cpus,
+        'extra_keep': ['energy'],
+    })
 
     inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
     inj_conf = {
