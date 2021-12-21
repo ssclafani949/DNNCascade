@@ -90,24 +90,18 @@ def do_ps_sens (
     ana = state.ana
     sindec = np.sin(np.radians(dec_deg))
     def get_PS_sens(sindec, n_trials=n_trials, gamma=gamma, mp_cpu=cpus):
+
         def get_tr(sindec, gamma, cpus):
             src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
             cutoff_GeV = cutoff * 1e3
-            conf = {
-               'src' : src,
-               'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-               'update_bg': True,
-               'sigsub' : sigsub, 
-               'mp_cpus' : cpus,
-               'bg_replace': True,
-               'randomize' : ['ra', cy.inj.DecRandomizer],
-               'sindec_bandwidth' : np.radians(5),
-               'dec_rand_method' : 'gaussian_fixed',
-               'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-               'dec_rand_pole_exlusion' : np.radians(8),
-               'mp_cpus' : cpus}
-            tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+            conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
+
+            # overwrite sigsub setting
+            conf['sigsub'] = sigsub
+
+            tr = cy.get_trial_runner(ana=ana, conf=conf, mp_cpus=cpus)
             return tr, src
+
         tr, src = get_tr(sindec, gamma, cpus)
         print('Performing BG Trails at RA: {}, DEC: {}'.format(src.ra_deg, src.dec_deg))
         bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=cpus))
@@ -187,23 +181,13 @@ def do_ps_trials (
     cutoff_GeV = cutoff * 1e3
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
     a = ana[0]
+
     def get_tr(sindec, gamma, cpus):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
- 
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
+
     tr , src = get_tr(sindec, gamma, cpus)
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
@@ -334,17 +318,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
         if verbose:
             print(b)
         src = cy.utils.sources(0, dec, deg=True)
-        conf = {
-            'src' : src, 
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf=conf)
             # determine ts threshold
         if nsigma !=None:
@@ -416,8 +390,8 @@ def do_gp_trials (
             poisson, seed, cpus, 
             cutoff, logging=True):
     """
-    Do trials for galactic plane templates including fermi bubbles
-    and save output in a structured dirctory based on paramaters
+    Do trials for galactic plane templates including Fermi bubbles
+    and save output in a structured directory based on parameters
     """
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -425,70 +399,13 @@ def do_gp_trials (
     print('Seed: {}'.format(seed))
     ana = state.ana
     cutoff_GeV = cutoff * 1e3
+
     def get_tr(temp):
-        if temp == 'pi0':
-            template = repo.get_template ('Fermi-LAT_pi0_map')
-            gp_conf = {
-                'template' :   template,
-                'flux' :       cy.hyp.PowerLawFlux(2.7),
-                'randomize' :  ['ra'],
-                'fitter_args': dict(gamma=2.7),
-                'sigsub':      True,
-                'update_bg': True,
-                'fast_weight': False,
-                'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
-        elif temp == 'fermibubbles':
-            template = repo.get_template ('Fermi_Bubbles_simple_map')
-            gp_conf = {
-                'template': template,
-                'randomize' : ['ra'],
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux = cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False,
-                'sigsub': True,
-                'update_bg': True,
-                'fast_weight': False
-                }
-        elif 'kra' in temp:
-            if temp == 'kra5':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir =  cy.utils.ensure_dir('{}/templates/kra5'.format(state.base_dir))
-            elif temp =='kra50':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
-            gp_conf = {
-                'template': template,
-                'bins_energy': energy_bins,
-                'randomize' : ['ra'],
-                'update_bg' : True,
-                'fast_weight' : False,
-                'sigsub': True,
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux=kra_flux,
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False,
-                'dir': template_dir}
-        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+        gp_conf = cg.get_gp_conf(
+            temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
+
     tr = get_tr(temp)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
@@ -545,73 +462,17 @@ def do_gp_sens (
     import healpy as hp
     hp.disable_warnings()
     cutoff_GeV = cutoff * 1e3
-    def get_tr(temp):
-        if temp == 'pi0':
-            template = repo.get_template ('Fermi-LAT_pi0_map')
-            gp_conf = {
-                'template': template,
-                'randomize' : ['ra'],
-                'flux':     cy.hyp.PowerLawFlux(gamma),
-                'fitter_args': dict(gamma=gamma),
-                'sigsub': True,
-                'update_bg' : True,
-                'fast_weight': True,
-                'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-        elif temp == 'fermibubbles':
-            template = repo.get_template ('Fermi_Bubbles_simple_map')
-            gp_conf = {
-                'template': template,
-                'randomize' : ['ra'],
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False,
-                'sigsub': True,
-                'update_bg' : True,
-                'fast_weight': False
-                }
-        elif 'kra' in temp:
-            if temp == 'kra5':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))
-            elif temp =='kra50':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
 
-            gp_conf = {
-                # desired template
-                'template': template,
-                'bins_energy': energy_bins,
-                'randomize' : ['ra'],
-                'sindec_bandwidth' : np.radians(5),
-                'fast_weight' : False,
-                'update_bg' : True,
-                'sigsub': True,
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux=kra_flux,
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False ,
-                'dir' : template_dir}
-        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+    def get_tr(temp):
+        gp_conf = cg.get_gp_conf(
+            temp=temp,
+            gamma=gamma,
+            cutoff_GeV=cutoff_GeV,
+            base_dir=state.base_dir,
+        )
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
+
     tr = get_tr(temp)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
@@ -701,72 +562,13 @@ def do_gp_sens_erange (
     ana_lim[0].sig = a.sig[mask]
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
     cutoff_GeV = cutoff * 1e3
-    def get_tr(temp, ana):
-        if temp == 'pi0':
-            template = repo.get_template ('Fermi-LAT_pi0_map')
-            gp_conf = {
-                'template': template,
-                'randomize' : ['ra'],
-                'flux':     cy.hyp.PowerLawFlux(2.7),
-                'fitter_args': dict(gamma=2.7),
-                'sigsub': True,
-                'update_bg' : True,
-                'fast_weight': True,
-                'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
-        elif temp == 'fermibubbles':
-            template = repo.get_template ('Fermi_Bubbles_simple_map')
-            gp_conf = {
-                'template': template,
-                'randomize' : ['ra'],
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False,
-                'sigsub': True,
-                'update_bg' : True,
-                'fast_weight': False
-                }
-        elif 'kra' in temp:
-            if temp == 'kra5':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra5'.format(ana_dir))
-            elif temp =='kra50':
-                template, energy_bins = repo.get_template(
-                          'KRA-gamma_maps_energies', per_pixel_flux=True)
-                kra_flux = cy.hyp.BinnedFlux(
-                    bins_energy=energy_bins,  
-                    flux=template.sum(axis=0))
-                template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
 
-            gp_conf = {
-                # desired template
-                'template': template,
-                'bins_energy': energy_bins,
-                'randomize' : ['ra'],
-                'update_bg' : True,
-                'fast_weight' : True,
-                'sigsub': True,
-                cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                    hkw=dict(bins=(
-                           np.linspace(-1,1, 20), 
-                           np.linspace(np.log10(500), 8.001, 20)
-                           )), 
-                    flux=kra_flux,
-                    features=['sindec', 'log10energy'],
-                    normalize_axes = ([1])), 
-                'energy' : False ,
-                'dir' : template_dir}
-        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+    def get_tr(temp, ana):
+        gp_conf = cg.get_gp_conf(
+            temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
+
     tr_bg = get_tr(temp, ana)
     tr_lim = get_tr(temp, ana_lim)
     t0 = now ()
@@ -870,63 +672,13 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
         b = sig_trials[0.0]['ts']
         if verbose:
             print(b)
+
         def get_tr(temp, cpus=1):
-            if temp == 'pi0':
-                template = repo.get_template ('Fermi-LAT_pi0_map')
-                gp_conf = {
-                    'template' :   template,
-                    'flux' :       cy.hyp.PowerLawFlux(2.7),
-                    'randomize' :  ['ra'],
-                    'fitter_args': dict(gamma=2.7),
-                    'sigsub':      True,
-                    'update_bg' : True,
-                    'fast_weight': False,
-                    'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
-            elif temp == 'fermibubbles':
-                template = repo.get_template ('Fermi_Bubbles_simple_map')
-                gp_conf = {
-                    'template':    template,
-                    'randomize' :  ['ra'],
-                    'flux':        cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
-                    'fitter_args': dict(gamma=2.0),
-                    'sigsub':      True,
-                    'update_bg' : True,
-                    'fast_weight': False,
-                    'dir':         cy.utils.ensure_dir('{}/templates/fb'.format(state.base_dir))}
-            elif 'kra' in temp:
-                if temp == 'kra5':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-                    template_dir =  cy.utils.ensure_dir('{}/templates/kra5'.format(state.base_dir))
-                elif temp =='kra50':
-                    template, energy_bins = repo.get_template(
-                              'KRA-gamma_maps_energies', per_pixel_flux=True)
-                    kra_flux = cy.hyp.BinnedFlux(
-                        bins_energy=energy_bins,  
-                        flux=template.sum(axis=0))
-                    template_dir = cy.utils.ensure_dir('{}/templates/kra50'.format(ana_dir))
-                gp_conf = {
-                    'template': template,
-                    'bins_energy': energy_bins,
-                    'randomize' : ['ra'],
-                    'update_bg' : True,
-                    'fast_weight' : False,
-                    'sigsub': True,
-                    cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
-                        hkw=dict(bins=(
-                               np.linspace(-1,1, 20), 
-                               np.linspace(np.log10(500), 8.001, 20)
-                               )), 
-                        flux=kra_flux,
-                        features=['sindec', 'log10energy'],
-                        normalize_axes = ([1])), 
-                    'energy' : False,
-                    'dir': template_dir}
-            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus = cpus)
+            gp_conf = cg.get_gp_conf(
+                temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+            tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
             return tr
+
         tr = get_tr(template)
         if nsigma !=None:
             #print('sigma = {}'.format(nsigma))
@@ -1018,17 +770,7 @@ def do_stacking_trials (
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     def get_tr(src, gamma, cpus):
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
     tr = get_tr(src, gamma, cpus)
@@ -1084,20 +826,12 @@ def do_stacking_sens (
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     out_dir = cy.utils.ensure_dir ('{}/stacking/sens/{}/'.format (state.base_dir, catalog))
+
     def get_tr(src, gamma, cpus):
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr
+
     tr = get_tr(src, gamma, cpus)
     t0 = now ()
     print ('Beginning trials at {} ...'.format (t0))
@@ -1222,18 +956,7 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
         b = bg
         if verbose:
             print(b)
-        conf = {
-            'src' : src,
-            'flux' : cy.hyp.PowerLawFlux(gamma, energy_cutoff = cutoff_GeV),
-            'update_bg': True,
-            'sigsub' :  True,
-            'randomize' : ['ra', cy.inj.DecRandomizer],
-            'sindec_bandwidth' : np.radians(5),
-            'dec_rand_method' : 'gaussian_fixed',
-            'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-            'dec_rand_pole_exlusion' : np.radians(8)
-            }
-
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
         tr = cy.get_trial_runner(ana=ana, conf=conf)
             # determine ts threshold
         if nsigma !=None:
@@ -1316,18 +1039,13 @@ def do_sky_scan_trials(state, poisson,
     ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
     t0 = now ()
     ana = state.ana
-    conf = {
-        'ana' : ana,
-        'sigsub' : True,
-        'update_bg' : True,
-        'flux' : cy.hyp.PowerLawFlux(gamma),
-        'randomize' : ['ra', cy.inj.DecRandomizer],
-        'sindec_bandwidth' : np.radians(5),
-        'dec_rand_method' : 'gaussian_fixed',
-        'dec_rand_kwargs' : dict(randomization_width = np.radians(3)),
-        'dec_rand_pole_exlusion' : np.radians(8),
-        'mp_cpus' : cpus,
-        'extra_keep' : ['energy']}
+    conf = cg.get_ps_conf(src=None, gamma=gamma)
+    conf.pop('src')
+    conf.update({
+        'ana': ana,
+        'mp_cpus': cpus,
+        'extra_keep': ['energy'],
+    })
 
     inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
     inj_conf = {
