@@ -434,6 +434,7 @@ def do_gp_trials (
                 'randomize' :  ['ra'],
                 'fitter_args': dict(gamma=2.7),
                 'sigsub':      True,
+                'update_bg': True,
                 'fast_weight': False,
                 'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
         elif temp == 'fermibubbles':
@@ -451,6 +452,7 @@ def do_gp_trials (
                     normalize_axes = ([1])), 
                 'energy' : False,
                 'sigsub': True,
+                'update_bg': True,
                 'fast_weight': False
                 }
         elif 'kra' in temp:
@@ -473,6 +475,7 @@ def do_gp_trials (
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
                 'update_bg' : True,
+                'fast_weight' : False,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
                     hkw=dict(bins=(
@@ -551,6 +554,7 @@ def do_gp_sens (
                 'flux':     cy.hyp.PowerLawFlux(gamma),
                 'fitter_args': dict(gamma=gamma),
                 'sigsub': True,
+                'update_bg' : True,
                 'fast_weight': True,
                 'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
         elif temp == 'fermibubbles':
@@ -568,6 +572,7 @@ def do_gp_sens (
                     normalize_axes = ([1])), 
                 'energy' : False,
                 'sigsub': True,
+                'update_bg' : True,
                 'fast_weight': False
                 }
         elif 'kra' in temp:
@@ -592,6 +597,7 @@ def do_gp_sens (
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
                 'sindec_bandwidth' : np.radians(5),
+                'fast_weight' : False,
                 'update_bg' : True,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
@@ -704,6 +710,7 @@ def do_gp_sens_erange (
                 'flux':     cy.hyp.PowerLawFlux(2.7),
                 'fitter_args': dict(gamma=2.7),
                 'sigsub': True,
+                'update_bg' : True,
                 'fast_weight': True,
                 'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(ana_dir))}
         elif temp == 'fermibubbles':
@@ -721,6 +728,7 @@ def do_gp_sens_erange (
                     normalize_axes = ([1])), 
                 'energy' : False,
                 'sigsub': True,
+                'update_bg' : True,
                 'fast_weight': False
                 }
         elif 'kra' in temp:
@@ -745,6 +753,7 @@ def do_gp_sens_erange (
                 'bins_energy': energy_bins,
                 'randomize' : ['ra'],
                 'update_bg' : True,
+                'fast_weight' : True,
                 'sigsub': True,
                 cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
                     hkw=dict(bins=(
@@ -870,6 +879,7 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
                     'randomize' :  ['ra'],
                     'fitter_args': dict(gamma=2.7),
                     'sigsub':      True,
+                    'update_bg' : True,
                     'fast_weight': False,
                     'dir':         cy.utils.ensure_dir('{}/templates/pi0'.format(state.base_dir))}
             elif temp == 'fermibubbles':
@@ -880,6 +890,7 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
                     'flux':        cy.hyp.PowerLawFlux(2.0, energy_cutoff = cutoff_GeV),
                     'fitter_args': dict(gamma=2.0),
                     'sigsub':      True,
+                    'update_bg' : True,
                     'fast_weight': False,
                     'dir':         cy.utils.ensure_dir('{}/templates/fb'.format(state.base_dir))}
             elif 'kra' in temp:
@@ -902,6 +913,7 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
                     'bins_energy': energy_bins,
                     'randomize' : ['ra'],
                     'update_bg' : True,
+                    'fast_weight' : False,
                     'sigsub': True,
                     cy.pdf.CustomFluxEnergyPDFRatioModel : dict(
                         hkw=dict(bins=(
