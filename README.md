@@ -14,8 +14,10 @@ A version of this virtual environment is saved at /data/ana/analyses/NuSources/2
 Generated trials have been saved to `/data/ana/analyses/NuSources/2021_DNNCascade_analyses/baseline_analysis`
 
 File Structure:
+
 Config.py
-  This script sets the `job_base` which can be left as baseline_analysis.  It also sets different directories to save everything.  These can be adjusted but will default by creating `/data/user/USERNAME/data/analyses/JOB_BASE/` directory where all files will be read and saved unless otherwise specified.
+
+  This script sets the `job_base` which can be left as baseline_analysis.  It also sets different directories to save everything, and is the one place where all the trial_runner configurations are defined. These can be adjusted but will default by creating `/data/user/USERNAME/data/analyses/JOB_BASE/` directory where all files will be read and saved unless otherwise specified.
   
 trials.py
   This script has functions to run trials or compute sensitivity, for PS, Stacking and Templates, these can be done at the individiual trial level, using the `do-X-trials` functions, or computing a senstivity from scratch using `do-X-sens` .  The sens functions are useful for quick checks that do not require a lot of background trials.
