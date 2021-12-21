@@ -63,12 +63,13 @@ def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
 
 
 def get_gp_conf(
-        temp, gamma=None, cutoff_GeV=np.inf, base_dir=base_dir, repo=repo):
+        template_str, gamma=None, cutoff_GeV=np.inf,
+        base_dir=base_dir, repo=repo):
     """Get csky trial runner config for Galactic Plane Template
 
     Parameters
     ----------
-    temp : str
+    template_str : str
         The name of the template to use. Must be one of:
         ['pi0', 'fermibubbles', 'kra5', 'kra50']
     gamma : float, optional
@@ -103,7 +104,7 @@ def get_gp_conf(
         print('=========================================================')
         print()
 
-    if temp == 'pi0':
+    if template_str == 'pi0':
 
         # get default gamma
         if gamma is None:
@@ -123,7 +124,7 @@ def get_gp_conf(
             'fast_weight': False,
             'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(base_dir)),
         }
-    elif temp == 'fermibubbles':
+    elif template_str == 'fermibubbles':
 
         # get default gamma
         if gamma is None:
@@ -150,14 +151,14 @@ def get_gp_conf(
             'update_bg': True,
             'fast_weight': False
             }
-    elif 'kra' in temp:
+    elif 'kra' in template_str:
 
         # check that gamma isn't set
         if gamma is not None:
             raise ValueError(
                 'Gamma must not be specified for KRA, but is:', gamma)
 
-        if temp == 'kra5':
+        if template_str == 'kra5':
             template, energy_bins = repo.get_template(
                 'KRA-gamma_5PeV_maps_energies', per_pixel_flux=True)
             kra_flux = cy.hyp.BinnedFlux(
@@ -165,7 +166,7 @@ def get_gp_conf(
                 flux=template.sum(axis=0))
             template_dir = cy.utils.ensure_dir(
                 '{}/templates/kra5'.format(base_dir))
-        elif temp == 'kra50':
+        elif template_str == 'kra50':
             template, energy_bins = repo.get_template(
                       'KRA-gamma_maps_energies', per_pixel_flux=True)
             kra_flux = cy.hyp.BinnedFlux(
@@ -193,6 +194,6 @@ def get_gp_conf(
             'dir': template_dir,
         }
     else:
-        raise ValueError('Unknown template name: {}'.format(temp))
+        raise ValueError('Unknown template name: {}'.format(template_str))
 
     return gp_conf
