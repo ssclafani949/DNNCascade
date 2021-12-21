@@ -402,7 +402,7 @@ def do_gp_trials (
 
     def get_tr(temp):
         gp_conf = cg.get_gp_conf(
-            temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+            template_str=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
         tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
 
@@ -465,7 +465,7 @@ def do_gp_sens (
 
     def get_tr(temp):
         gp_conf = cg.get_gp_conf(
-            temp=temp,
+            template_str=temp,
             gamma=gamma,
             cutoff_GeV=cutoff_GeV,
             base_dir=state.base_dir,
