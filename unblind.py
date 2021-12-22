@@ -135,9 +135,9 @@ def do_gp_trials (
     ana = state.ana
     cutoff_GeV = cutoff * 1e3
 
-    def get_tr(temp):
+    def get_tr(template_str):
         gp_conf = cg.get_gp_conf(
-            temp=temp,
+            template_str=template_str,
             cutoff_GeV=cutoff_GeV,
             base_dir=state.base_dir,
         )

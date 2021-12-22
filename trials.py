@@ -565,7 +565,7 @@ def do_gp_sens_erange (
 
     def get_tr(temp, ana):
         gp_conf = cg.get_gp_conf(
-            temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+            template_str=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
         tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
 
@@ -675,7 +675,10 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
 
         def get_tr(temp, cpus=1):
             gp_conf = cg.get_gp_conf(
-                temp=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+                template_str=temp,
+                cutoff_GeV=cutoff_GeV,
+                base_dir=state.base_dir,
+            )
             tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
             return tr
 
