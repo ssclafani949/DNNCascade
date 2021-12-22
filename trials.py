@@ -104,7 +104,7 @@ def do_ps_sens (
 
         tr, src = get_tr(sindec, gamma, cpus)
         print('Performing BG Trails at RA: {}, DEC: {}'.format(src.ra_deg, src.dec_deg))
-        bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=cpus))
+        bg = cy.dists.Chi2TSD(tr.get_many_fits(n_trials, mp_cpus=cpus, seed=seed))
         if nsigma:
             beta = 0.5
             ts = bg.isf_nsigma(nsigma)
@@ -125,7 +125,8 @@ def do_ps_sens (
             # tolerance, as estimated relative error
             tol=.025,
             first_batch_size = 250,
-            mp_cpus=cpus
+            mp_cpus=cpus,
+            seed=seed
         )
         sens['flux'] = tr.to_E2dNdE (sens['n_sig'], E0=100, unit=1e3)
         print(sens['flux'])
@@ -849,14 +850,16 @@ def do_stacking_sens (
                         0.5, #percent above threshold (0.5 for dp)
                         n_sig_step=25,
                         batch_size = n_trials / 3, 
-                        tol = 0.02)
+                        tol = 0.02,
+                        seed =seed)
     else:
         sens = tr.find_n_sig(
                         bg.median(), 
                         0.9, #percent above threshold (0.9 for sens)
                         n_sig_step=5,
                         batch_size = n_trials / 3, 
-                        tol = 0.02)
+                        tol = 0.02,
+                        seed = seed)
     sens['flux'] = tr.to_E2dNdE(sens['n_sig'], E0=100, unit=1e3)
     print ('Finished sens at {} ...'.format (t1))
     print (t1 - t0, 'elapsed.')
@@ -1062,7 +1065,7 @@ def do_sky_scan_trials(state, poisson,
                                         mp_scan_cpus = cpus,
                                         nside=nside, ts_to_p = ts_to_p)        
     print('Doing one Scan with nsig =  {}'.format(n_sig)) 
-    trials = sstr.get_one_scan(n_sig, poisson= poisson, logging=True)
+    trials = sstr.get_one_scan(n_sig, poisson= poisson, logging=True, seed=seed)
     if n_sig:
         out_dir = cy.utils.ensure_dir (
             '{}/skyscan/trials/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (

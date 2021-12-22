@@ -428,6 +428,7 @@ def submit_do_stacking_trials (
 
 @cli.command ()
 @click.option ('--n-jobs', default=10, type=int)
+@click.option ('--cpus', default=1, type=int)
 @click.option ('-n', '--n-sig', default=0, type=float)
 @click.option ('--gamma', default=2, type=float)
 @click.option ('--dec', 'dec_deg',  type=float, default= 0 )
@@ -435,7 +436,7 @@ def submit_do_stacking_trials (
 @click.option ('--seed', default=0)
 @pass_state
 def submit_do_sky_scan_trials (
-        state,  n_jobs, n_sig, gamma, 
+        state,  n_jobs, cpus, n_sig, gamma, 
          dec_deg, dry, 
         seed):
     ana_name = state.ana_name
@@ -443,7 +444,7 @@ def submit_do_sky_scan_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/skyscan_trials/T_E{}_n_sig_{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100), n_sig,  T)
-    sub = Submitter (job_dir=job_dir, memory=7, ncpu=4, 
+    sub = Submitter (job_dir=job_dir, memory=7, ncpu=cpus, 
         max_jobs=1000, config = 'DNNCascade/submitter_config')
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
@@ -451,9 +452,9 @@ def submit_do_sky_scan_trials (
         s = i + seed
         fmt = ' {} do-sky-scan-trials --dec_deg={:+08.3f}' \
                 ' --n-sig={} --gamma={:.3f}' \
-                ' --seed={}'
+                ' --seed={} --cpus={}'
         command = fmt.format (trial_script,  dec_deg,
-                              n_sig, gamma, s)
+                              n_sig, gamma, s, cpus)
 
         fmt = 'csky__scan_dec_{:+08.3f}___n_sig_{:08.3f}__' \
                 'gamma_{:.3f}_seed_{:04d}'
