@@ -460,8 +460,6 @@ def do_gp_sens (
     print(seed)
     ana = state.ana
     dir = cy.utils.ensure_dir ('{}/templates/{}'.format (state.base_dir, temp))
-    import healpy as hp
-    hp.disable_warnings()
     cutoff_GeV = cutoff * 1e3
 
     def get_tr(temp):
