@@ -180,21 +180,24 @@ def collect_bkg_trials_sourcelist( state ):
 
                                                                        
 @cli.command()
-@click.option ('--ntrials', default=10, type=int, help='number of trials to run')
+@click.option ('--n-trials', default=10, type=int, help='number of trials to run')
 @click.option ('--cpus', default=1, type=int, help='ncpus')
 @click.option ('--seed', default=None, type=int, help='Trial injection seed')
 @pass_state
 def do_correlated_trials_sourcelist ( 
-        state, ntrials, cpus, seed,  logging=True):
+        state, n_trials, cpus, seed,  logging=True):
     """
     Use MTR for correlated background trials evaluating at each source in the sourcelist
     """
     sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle') 
     ras = sourcelist.RA.values
     decs = sourcelist.DEC.values
+    if seed is None:
+        seed = int (time.time () % 2**32)
 
     t0 = now ()
     ana = state.ana
+    print('Loading Backgrounds')
     bgs = np.load('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), allow_pickle=True)
     def get_tr(dec, ra, cpus=cpus):
         src = cy.utils.sources(ra=ra, dec=dec, deg=True)
@@ -215,14 +218,14 @@ def do_correlated_trials_sourcelist (
         # use multiprocessing
         mp_cpus=cpus,
     ) 
-    trials = multr.get_many_fits(ntrials)
+    trials = multr.get_many_fits(n_trials)
     t = trials.as_dataframe
     t1 = now ()
     flush ()
     out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/correlated_bg/'.format (
         state.base_dir, state.ana_name))
     out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format (
-        out_dir, ntrials, seed)
+        out_dir, n_trials, seed)
     print ('-> {}'.format (out_file))
     t.to_pickle (out_file)
 
@@ -341,6 +344,53 @@ def unblind_stacking (
                 out_dir, catalog)
             print ('-> {}'.format (out_file))
             np.save (out_file, trials)
+
+
+@cli.command ()
+@click.option('--nside', default=128, type=int)
+@click.option('--cpus', default=1, type=int)
+@click.option('--seed', default=None, type = int)
+@click.option ('--TRUTH', default=None, type=bool, help='Must be Set to TRUE to unblind')
+@pass_state
+def unblind_skyscan(state, 
+                    nside, cpus, seed, truth):
+    """
+    Unblind the skyscan and save the true map
+    """
+
+    if seed is None:
+        seed = int (time.time () % 2**32)
+    random = cy.utils.get_random (seed) 
+    print('Seed: {}'.format(seed))
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    bg = np.load (bgfile, allow_pickle=True)
+    ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
+    t0 = now ()
+    ana = state.ana
+    conf = cg.get_ps_conf(src=None, gamma=2.0)
+    conf.pop('src')
+    conf.update({
+        'ana': ana,
+        'mp_cpus': cpus,
+        'extra_keep': ['energy'],
+    })                                                                                                           
+    sstr = cy.get_sky_scan_trial_runner(conf=conf, TRUTH=truth, 
+                                        min_dec= np.radians(-80),
+                                        max_dec = np.radians(80),
+                                        mp_scan_cpus = cpus,
+                                        nside=nside, ts_to_p = ts_to_p)        
+    if truth:
+        print('UNBLINDING!!!!')
+    trials = sstr.get_one_scan(logging=True, seed=seed, TRUTH=truth)
+    if truth:
+        out_dir = cy.utils.ensure_dir ('{}/skyscan/results/'.format (      
+            state.base_dir))
+        out_file = '{}/unblinded_skyscan.npy'.format (
+            out_dir,  seed)
+        print ('-> {}'.format (out_file))
+        np.save (out_file, trials)
+
 
 
 
