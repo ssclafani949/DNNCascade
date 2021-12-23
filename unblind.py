@@ -8,6 +8,7 @@ import histlite as hl
 import astropy
 now = datetime.datetime.now
 import matplotlib.pyplot as plt
+import pandas as pd
 import click, sys, os, time
 import config as cg
 flush = sys.stdout.flush
@@ -76,26 +77,26 @@ def unblind_sourcelist (
     """
     Unblind Source List
     """
+    trials = []
     sourcelist = np.load('catalogs/Source_List_DNNC.npy', allow_pickle = True) 
     t0 = now ()
     print(truth)
     ana = state.ana
-    dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
-
-    def get_tr(dec, ra, cpus, truth):
+    dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir))
+    def get_tr(dec, ra,  truth):
         src = cy.utils.sources(ra, dec, deg=False)
         conf = cg.get_ps_conf(src=src, gamma=2.0)
-        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus, TRUTH=TRUTH)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, TRUTH=truth)
         return tr, src
 
     for source in sourcelist:
-        print('Source {}'.format(src[0]))
         
         tr , src = get_tr(
             dec = np.radians(source[2]), 
             ra=np.radians(source[1]), 
-            cpus=cpus, TRUTH=TRUTH)
-        if TRUTH:
+            truth = truth)
+        
+        if truth:
             print('UNBLINDING!!!')
         
         trial =  tr.get_one_fit (TRUTH=truth,  seed = seed, logging=logging)
@@ -103,30 +104,141 @@ def unblind_sourcelist (
         print(source[0], trial[0])
     t1 = now ()
     flush ()
-    out_dir = cy.utils.ensure_dir ('{}/ps/results/'.format (
-        state.base_dir, state.ana_name))
-    out_file = '{}/fulllist_unblinded.npy'.format (
-        out_dir)
+    trials.append(trial)
+    if truth:
+        out_dir = cy.utils.ensure_dir ('{}/ps/results/'.format (
+            state.base_dir, state.ana_name))
+        out_file = '{}/fulllist_unblinded.npy'.format (
+            out_dir)
+        print ('-> {}'.format (out_file))
+        np.save (out_file, trials)
+
+
+@cli.command()                                                                              
+@click.option ('--sourcenum', default=1, type=int, help='what source in the list')
+@click.option ('--ntrials', default=1000, type=int, help='number of trials to run')
+@click.option ('--cpus', default=1, type=int, help='ncpus')
+@click.option ('--seed', default=None, type=int, help='Trial injection seed')
+@pass_state
+def do_bkg_trials_sourcelist ( 
+        state, sourcenum, ntrials, cpus, seed, logging=True):
+    """ 
+    Do Background Trials at the exact declination of each source. 
+    Used as an input for the MTR correlated trials to correctly calculate 
+    pre-trial pvalues
+    """
+    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle')
+    ras = sourcelist.RA.values
+    decs = sourcelist.DEC.values
+    names = sourcelist.Names.values
+   
+    if seed is None:
+        seed = int (time.time () % 2**32)
+ 
+    t0 = now ()
+    ana = state.ana
+    def get_tr(dec, ra, cpus=cpus):
+        src = cy.utils.sources(ra=ra, dec=dec, deg=True)
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus )
+        return tr                                                        
+    dec = decs[sourcenum]
+    ra = ras[sourcenum]
+    name = names[sourcenum] 
+    
+    tr = get_tr(dec=dec, ra=ra, cpus=cpus)
+
+    print('Doing Background Trials for Source {} : {}'.format(sourcenum, name))
+    print('DEC {} : RA {}'.format(dec, ra))
+    print('Seed: {}'.format(seed))
+    trials = tr.get_many_fits(ntrials, seed=seed)
+    t1 = now ()
+    flush ()
+    out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/bg/source_{}'.format (
+        state.base_dir, sourcenum))
+    out_file = '{}/bkg_trials_{}_seed_{}.npy'.format (
+        out_dir, ntrials, seed)
     print ('-> {}'.format (out_file))
     np.save (out_file, trials.as_array)
+   
+@cli.command()
+@pass_state
+def collect_bkg_trials_sourcelist( state ):
+    """
+    Collect all the background trials from do-bkg-trials-sourcelist into one list to feed into 
+    the MTR for calculation of pre-trial pvalues.  Unlike do-ps-trials, these are done at the exact
+    declination of each source
+    """
+    bgs = []
+    numsources = 109
+    base_dir = '{}/ps/correlated_trials/bg/'.format(state.base_dir)
+    for i in range(numsources):
+        bg = cy.bk.get_all(base_dir +'source_{}/'.format(i), '*.npy',
+            merge=np.concatenate, post_convert =  (lambda x: cy.dists.TSD(cy.utils.Arrays(x))))
+        bgs.append(bg)
+    np.save('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), bgs)
 
+                                                                       
+@cli.command()
+@click.option ('--ntrials', default=10, type=int, help='number of trials to run')
+@click.option ('--cpus', default=1, type=int, help='ncpus')
+@click.option ('--seed', default=None, type=int, help='Trial injection seed')
+@pass_state
+def do_correlated_trials_sourcelist ( 
+        state, ntrials, cpus, seed,  logging=True):
+    """
+    Use MTR for correlated background trials evaluating at each source in the sourcelist
+    """
+    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle') 
+    ras = sourcelist.RA.values
+    decs = sourcelist.DEC.values
+
+    t0 = now ()
+    ana = state.ana
+    bgs = np.load('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), allow_pickle=True)
+    def get_tr(dec, ra, cpus=cpus):
+        src = cy.utils.sources(ra=ra, dec=dec, deg=True)
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+        return tr
+    print('Getting trial runners')
+    trs = [get_tr(d,r) for d,r in zip(decs, ras)]
+    tr_inj = trs[0] 
+    multr = cy.trial.MultiTrialRunner(
+        ana,
+        # bg+sig injection trial runner (produces trials)
+        tr_inj,
+        # llh test trial runners (perform fits given trials)
+        trs,
+        # background distrubutions
+        bgs=bgs,
+        # use multiprocessing
+        mp_cpus=cpus,
+    ) 
+    trials = multr.get_many_fits(ntrials)
+    t = trials.as_dataframe
+    t1 = now ()
+    flush ()
+    out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/correlated_bg/'.format (
+        state.base_dir, state.ana_name))
+    out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format (
+        out_dir, ntrials, seed)
+    print ('-> {}'.format (out_file))
+    t.to_pickle (out_file)
 
 @cli.command()
 @click.argument('temp')
-@click.option('--n-trials', default=1000, type=int)
-@click.option ('-n', '--n-sig', default=0, type=float)
-@click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
+@click.option ('--TRUTH', default=None, type=bool, help='Must be Set to TRUE to unblind')
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
-def do_gp_trials ( 
-            state, temp, n_trials, n_sig, 
-            poisson, seed, cpus, 
-            cutoff, logging=True):
+def unblind_gp ( 
+            state, temp,  
+            seed, cpus, 
+            truth, cutoff, logging=True):
     """
-    Do trials for galactic plane templates including fermi bubbles
-    and save output in a structured dirctory based on paramaters
+    Unblind a particular galactic plane templaet
     """
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -135,102 +247,100 @@ def do_gp_trials (
     ana = state.ana
     cutoff_GeV = cutoff * 1e3
 
-    def get_tr(template_str):
+    def get_tr(template_str, TRUTH):
         gp_conf = cg.get_gp_conf(
             template_str=template_str,
             cutoff_GeV=cutoff_GeV,
-            base_dir=state.base_dir,
+            base_dir=state.base_dir
         )
         tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
 
-    tr = get_tr(temp)
+    tr = get_tr(temp, TRUTH=truth)
     t0 = now ()
-    print ('Beginning trials at {} ...'.format (t0))
-    flush ()
-    trials = tr.get_many_fits (
-        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging)
-    t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-    print (trials if n_sig else cy.dists.Chi2TSD (trials))
-    print (t1 - t0, 'elapsed.')
-    flush ()
-    if temp =='fermibubbles':
-        out_dir = cy.utils.ensure_dir (
-            '{}/gp/trials/{}/{}/{}/cutoff/{}/nsig/{:08.3f}'.format (
-                state.base_dir, state.ana_name,
-                temp,
-                'poisson' if poisson else 'nonpoisson', cutoff,
-                n_sig))
+    if truth:
+        print('UNBLINDING!!!')
+   
+    print('Loading BKG TRIALS')
+    base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, temp)
+    sigfile = '{}/trials.dict'.format (base_dir)                                       
+    sig = np.load (sigfile, allow_pickle=True)
+    if temp == 'fermibubbles':
+        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
     else:
-        out_dir = cy.utils.ensure_dir (
-            '{}/gp/trials/{}/{}/{}/nsig/{:08.3f}'.format (
-                state.base_dir, state.ana_name,
-                temp,
-                'poisson' if poisson else 'nonpoisson',
-                n_sig))
-
-    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
-        out_dir, n_trials, seed)
-    print ('-> {}'.format (out_file))
-    np.save (out_file, trials.as_array)
+        sig_trials = cy.bk.get_best(sig, 'poisson', 'nsig')
+    b = sig_trials[0.0]['ts']
+    bg = cy.dists.TSD(b) 
+    print('Number of Background Trials: {}'.format(len(bg)))
+    trial =  tr.get_one_fit (TRUTH=truth,  seed = seed, logging=logging)
+    print('TS: {} ns: {}'.format(trial[0], trial[1]))
+    pval = np.mean(bg.values > trial[0])
+    print('pval : {}'.format(pval))
+    trial.append(pval)
+    flush ()
+    if truth:
+        if temp == 'fermibubbles':
+            out_dir = cy.utils.ensure_dir ('{}/gp/results/{}/'.format (
+                state.base_dir, temp))
+            out_file = '{}/{}_cutoff_{}_unblinded.npy'.format (
+                out_dir, temp, cutoff)
+        else:
+            out_dir = cy.utils.ensure_dir ('{}/gp/results/{}/'.format (
+                state.base_dir, temp))
+            out_file = '{}/{}_unblinded.npy'.format (
+                out_dir, temp)
+        print ('-> {}'.format (out_file))
+        np.save (out_file, trials)
 
 
 @cli.command()
-@click.option('--n-trials', default=1000, type=int)
-@click.option ('-n', '--n-sig', default=0, type=float)
-@click.option ('--poisson/--nopoisson', default=True)
-@click.option ('--catalog',   default='snr' , type=str, help='Stacking Catalog, SNR, PWN or UNID')
-@click.option ('--gamma', default=2.0, type=float, help = 'Spectrum to Inject')
-@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')
+@click.option ('--TRUTH', default=None, type=bool, help='Must be Set to TRUE to unblind')
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--seed', default=None, type=int)
-@click.option ('--cpus', default=1, type=int)
 @pass_state
-def do_stacking_trials (
-        state, n_trials, gamma, cutoff, catalog,
-        n_sig,  poisson, seed, cpus, logging=True):
+def unblind_stacking (
+        state, 
+        truth, cutoff, seed, logging=True):
     """
-    Do trials from a stacking catalog
+    Unblind all the stacking catalogs
     """
-    print('Catalog: {}'.format(catalog))
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
     print(seed)
     ana = state.ana
-    cat = np.load('catalogs/{}_ESTES_12.pickle'.format(catalog),
-        allow_pickle=True)
-    src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
-    cutoff_GeV = cutoff * 1e3
-    dir = cy.utils.ensure_dir ('{}/{}/'.format (state.base_dir, catalog))
-    def get_tr(src, gamma, cpus):
-        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
-        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+    def get_tr(src, TRUTH):
+        conf = cg.get_ps_conf(src=src, gamma=2.0, cutoff_GeV=np.inf)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, TRUTH=TRUTH)
         return tr
-    tr = get_tr(src, gamma, cpus)
-    t0 = now ()
-    print ('Beginning trials at {} ...'.format (t0))
-    flush ()
-    trials = tr.get_many_fits (
-        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging)
-    t1 = now ()
-    print ('Finished trials at {} ...'.format (t1))
-    print (trials if n_sig else cy.dists.Chi2TSD (trials))
-    print (t1 - t0, 'elapsed.')
-    flush ()
-    if n_sig:
-        out_dir = cy.utils.ensure_dir (
-            '{}/stacking/trials/{}/catalog/{}/{}/gamma/{:.3f}/cutoff_TeV/{:.0f}/nsig/{:08.3f}'.format (
-                state.base_dir, state.ana_name, catalog,
-                'poisson' if poisson else 'nonpoisson',
-                 gamma, cutoff,  n_sig))
-    else:
-        out_dir = cy.utils.ensure_dir ('{}/stacking/trials/{}/catalog/{}/bg/'.format (
-            state.base_dir, state.ana_name, catalog))
-    out_file = '{}/trials_{:07d}__seed_{:010d}.npy'.format (
-        out_dir, n_trials, seed)
-    print ('-> {}'.format (out_file))
-    np.save (out_file, trials.as_array)
+    if truth:
+        print('UNBLINDING!!!')
+    for catalog in ['snr', 'pwn', 'unid']:
+        print('Catalog: {}'.format(catalog))
+        cat = np.load('catalogs/{}_ESTES_12.pickle'.format(catalog),
+            allow_pickle=True)
+        src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
+        tr = get_tr(src, TRUTH=truth)
+        
+        print('Loading BKG TRIALS')
+        base_dir = state.base_dir + '/stacking/'
+        bgfile = '{}/{}_bg.dict'.format(base_dir, catalog)
+        b = np.load (bgfile, allow_pickle=True)
+        bg = cy.dists.TSD(b) 
+        print('Number of Background Trials: {}'.format(len(bg)))
+        trial =  tr.get_one_fit (TRUTH=truth,  seed = seed, logging=logging)
+        print('TS: {} ns: {}'.format(trial[0], trial[1]))
+        pval = np.mean(bg.values > trial[0])
+        print('pval : {}'.format(pval))
+        trial.append(pval)
+        flush ()
+        if truth:
+            out_dir = cy.utils.ensure_dir ('{}/stacking/results/{}/'.format (
+                state.base_dir, catalog))
+            out_file = '{}/{}_unblinded.npy'.format (
+                out_dir, catalog)
+            print ('-> {}'.format (out_file))
+            np.save (out_file, trials)
 
 
 

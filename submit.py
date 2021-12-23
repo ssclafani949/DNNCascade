@@ -183,13 +183,15 @@ def submit_do_mtr_trials (
         sub.submit_npx4 (commands, labels)
 
 @cli.command ()
+@click.option ('--n-jobs', default=10, type=int)
 @click.option ('--n-trials', default=10000, type=int)
 @click.option ('--gamma', default=2, type=float)
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option ('-sourcenum', multiple=True, default=None, type=float)
 @pass_state                                                                                                               
-def submit_do_mtr_bkg (
-        state, n_trials,  gamma,  dry, seed):
+def submit_do_bkg_trials_sourcelist (
+        state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir 
@@ -197,25 +199,31 @@ def submit_do_mtr_bkg (
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
         max_jobs=1000, config = 'DNNCascade/submitter_config')
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
-    trial_script = os.path.abspath('mtr.py')
-    nsources = 109
-    for source in range(nsources):
-        s =  seed
-        fmt = '{} do-bkg-trials  --ntrials {}' \
-                            ' --sourcenum {}' \
-                            ' --seed={}'
-        command = fmt.format ( trial_script,  n_trials,
-                               source, s)
-        fmt = 'csky_sens_{:07d}_' \
-                'source_{}_seed_{:04d}'
-        label = fmt.format (
-                n_trials, 
-                source, s)
-        commands.append (command)
-        labels.append (label)
+    trial_script = os.path.abspath('unblind.py')
+    if sourcenum:
+        sources = sourcenum
+    else:
+        nsources = 109
+        sources = [int(source) for source in range(nsources)]
+    print('Submitting For Sources:')
+    print(sources)   
+    for source in sources:
+        for i in range (n_jobs):
+            s = i + seed
+            fmt = '{} do-bkg-trials-sourcelist  --ntrials {}' \
+                                ' --sourcenum {}' \
+                                ' --seed={}'
+            command = fmt.format ( trial_script,  n_trials,
+                                   source, s)
+            fmt = 'csky_sens_{:07d}_' \
+                    'source_{}_seed_{:04d}'
+            label = fmt.format (
+                    n_trials, 
+                    source, s)
+            commands.append (command)
+            labels.append (label)
     sub.dry = dry
     if 'condor00' in hostname:
         sub.submit_condor00 (commands, labels)
