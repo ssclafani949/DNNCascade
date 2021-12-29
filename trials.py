@@ -141,7 +141,7 @@ def do_ps_sens (
     out_dir = cy.utils.ensure_dir('{}/E{}/{}/dec/{:+08.3f}/'.format(
         state.base_dir, int(gamma*100), 'sigsub' if sigsub else 'nosigsub',  dec_deg))
     if nsigma:
-        out_file = out_dir + 'dp_{}sigma.npy'.format(nisgma)
+        out_file = out_dir + 'dp_{}sigma.npy'.format(nsigma)
     else:
         out_file = out_dir + 'sens.npy'
     print(sens_flux)
