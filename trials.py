@@ -656,10 +656,10 @@ def collect_gp_trials (state, inputdir):
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @pass_state
-def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
+def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
     """
-    Calculate the Sensitvity or discovery potential once bg and sig files are collected
-    Does all stacking catalogs
+    Calculate the Sensitivity or discovery potential once bg and sig files are collected
+    Does all galactic plane templates
     """
     ana = state.ana
     flux = []
