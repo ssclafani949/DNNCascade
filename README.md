@@ -8,6 +8,8 @@ Requirements:
 * cvmfs with python 3 `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
 * csky tag v1.1.6
 * click (any version should work, but ran with version 7.1.2)
+* numpy (any version should work, but ran with version 1.18.5)
+* pandas (any version should work, but ran with version 1.1.1)
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
