@@ -70,25 +70,35 @@ eg, run calculate sensitvity at the same declination but run all signal and back
 
 `python trials.py do-ps-sens --cpus N --dec_deg -30 --n-trials 1000 `
 
+We can set the gamma and cutoff via the `--gamma` and `--cutoff` flags (defaults are gamma=2 and cutoff=inf).
 To calculate a discovery potential `--nsigma N` can be passed, this will
 automatically set the threshold to be 50% of background trials.
 The same steps can be performed with the corresponding `do_XX_YY` functions for stacking, templates, skysca
 
 ## Combine PS trials
-Once all the background trials are created we need to combine them into one nested dictionary for all paramaters:
+Once all the background trials are created we need to combine them into one nested dictionary for all parameters:
 
-`python trials.py collect-ps-bg --fit --dist`
+`python trials.py collect-ps-bg --nofit --nodist`
+
 `python trials.py collect-ps-sig`
+
+We add the `--nofit --nodist` flags to the background trial collection to collect the raw trials.
 
 ## Calculate sensitvity
 
-From those combined files we will calculate ps senstivity at each declination for the given gamma, cutoff, and nsigma (leaving nsigma as None will calculate sensitvity)
+From those combined files we will calculate ps senstivity at each declination for the given gamma and cutoff:
+`python trials.py find-ps-n-sig --gamma X --cutoff inf`
 
+If we instead want to compute the discovery potential for a given sigma, we can additionally set the `--nsigma` flag.
+To compute the 3-sigma discovery potential we can do the following:
+`python trials.py find-ps-n-sig --gamma X --cutoff inf --nsigma 3`
 
-`python trials.py find-ps-n-sig --gamma X --cutoff np.inf --nsigma None`
+Note that this uses csky's method `csky.bk.get_best` under the hood. This method will try to find the closest background and signal trials to the ones defined via the flags. This functionality is very useful when interpolating on a grid of gamma, dec or cutoff values, for instance. However, it can be mis-leading when only spot-checks are performed and only trials for a single gamma, declination or cutoff value are computed. Make sure that the trials exist for which the sensitivity is computed!
 
 A similar analysis chain can be performed with the functions for stacking, templates, skyscan
 
-Of note is the syntax for templates has the template is slightly different and the template must be at the end:
+Of note is the syntax for templates, which is slightly different and the template must be at the end:
 
 `python trials.py do-gp-trials --n-trials 1000 pi0 `
+
+Possible template arguments are: `pi0`, `kra5`, `kra50`, `fermibubbles`.
