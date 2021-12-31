@@ -305,7 +305,10 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
     bgfile = '{}/bg.dict'.format (indir)
     bg = np.load (bgfile, allow_pickle=True)
     decs = list(bg['dec'].keys())[:-1]
-    def get_n_sig(dec, gamma, beta=0.9, nsigma=None, cutoff=cutoff, verbose=verbose):
+    def get_n_sig(
+                dec, gamma,
+                beta=0.9, nsigma=None, cutoff=cutoff, fit=fit, verbose=verbose,
+            ):
         if cutoff == None:
             cutoff_GeV = np.inf
             cutoff = np.inf
@@ -358,7 +361,10 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
     else:
         beta = 0.9
     for i, dec in enumerate(decs):
-        f, n, ts = get_n_sig(dec, gamma, beta, nsigma, cutoff, fit)
+        f, n, ts = get_n_sig(
+            dec=dec, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff,
+            fit=fit, verbose=verbose,
+        )
         print('{:.3} : {:.3} : {:.5}  : TS : {:.5}                                    '.format(
             dec, n, f, ts) , end='\r', flush=True)
 
@@ -726,7 +732,7 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
         print('Template: {}'.format(template))
         if template == 'fermibubbles':
             for cutoff in [50,100,500,np.inf]:
-                f = find_n_sig_gp(template, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=False)
+                f = find_n_sig_gp(template, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=verbose)
                 flux.append(f) 
                 print('Cutoff: {} TeV'.format(cutoff))
                 print('Flux: {:.8}'.format(f))    
@@ -737,7 +743,7 @@ def find_gp_n_sig(state,template, nsigma, fit, verbose, inputdir):
                 np.save(base_dir + '/{}_sens_flux.npy'.format(template), flux)
 
         else:
-            f = find_n_sig_gp(template, nsigma=nsigma,beta =beta, cutoff=cutoff, verbose=False)
+            f = find_n_sig_gp(template, nsigma=nsigma,beta =beta, cutoff=cutoff, verbose=verbose)
             print('Flux: {:.8}'.format(f))     
             if nsigma:
                 np.save(base_dir + '/{}_dp_{}sigma_flux.npy'.format(template, nsigma), f)
@@ -1006,7 +1012,7 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
         src = cy.utils.Sources(ra = srcs['ra_deg'], dec=srcs['dec_deg'], deg=True)
         for gamma in sig['gamma'].keys():
             print ('Gamma: {}'.format(gamma))
-            f = find_n_sig_cat(src, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=False)
+            f = find_n_sig_cat(src, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=verbose)
             print('Sensitvity Flux: {:.8}'.format(f))     
             fluxs.append(f)
             if nsigma:
