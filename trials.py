@@ -253,9 +253,11 @@ def collect_ps_bg (state, fit,  dist, inputdir):
             post_convert = (lambda x: cy.utils.Arrays (x))
         else:
             post_convert = (lambda x: TSD (cy.utils.Arrays (x), **kw))
-        bgs[float(key)] = cy.bk.get_all (
+        bg_trials = cy.bk.get_all (
                 '{}/dec/{}/'.format (bg_dir, key), '*.npy',
                 merge=np.concatenate, post_convert=post_convert)
+        if bg_trials is not False:
+            bgs[float(key)] = bg_trials
     bg['dec'] = bgs
     print ('\rDone.' + 20 * ' ')
     flush ()
