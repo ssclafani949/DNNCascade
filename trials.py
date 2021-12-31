@@ -490,7 +490,7 @@ def do_gp_sens (
                         tol = 0.02)
     else:
         template_sens = tr.find_n_sig(
-                        bg.isf_nsigma(5), 
+                        bg.isf_nsigma(nsigma),
                         0.5, #percent above threshold (0.5 for dp)
                         n_sig_step=50,
                         batch_size = n_trials / 3, 
@@ -587,7 +587,7 @@ def do_gp_sens_erange (
                         tol = 0.02)
     else:
         template_sens = tr_lim.find_n_sig(
-                        bg.isf_nsigma(5), 
+                        bg.isf_nsigma(nsigma),
                         0.5, #percent above threshold (0.9 for sens)
                         n_sig_step=15,
                         batch_size = n_trials / 3, 
