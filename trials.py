@@ -306,7 +306,7 @@ def find_ps_n_sig(state, nsigma, cutoff, gamma, verbose, fit, inputdir):
     sig = np.load (sigfile, allow_pickle=True)
     bgfile = '{}/bg.dict'.format (indir)
     bg = np.load (bgfile, allow_pickle=True)
-    decs = list(bg['dec'].keys())[:-1]
+    decs = list(bg['dec'].keys())
     def get_n_sig(
                 dec, gamma,
                 beta=0.9, nsigma=None, cutoff=cutoff, fit=fit, verbose=verbose,
