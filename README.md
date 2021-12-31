@@ -31,7 +31,7 @@ submitter_config
   The script that will be used to unblind and run correlated trials.
 
 Setup: 
-Trials are run either on cobalt, npx, or on local machines with cvmfs and virtual environment.  IceRec or combo is not required.  To setup call cvmfs via `source /cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh` while this is loaded create a virtual environment to insall packages using `python -m venv /path/to/virtualenvironemnt`
+Trials are run either on cobalt, npx, or on local machines with cvmfs and virtual environment.  IceRec or combo is not required.  To setup call cvmfs via `eval $(/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh)` while this is loaded create a virtual environment to insall packages using `python -m venv /path/to/virtualenvironemnt`
 In the virtual environment install the required software.
 
 Submitter should not be necessary for small scale testing but instructions are below:
@@ -70,8 +70,9 @@ eg, run calculate sensitvity at the same declination but run all signal and back
 
 `python trials.py do-ps-sens --cpus N --dec_deg -30 --n-trials 1000 `
 
-To calculate a discovery potential --nsigma N can be passed, this will
+To calculate a discovery potential `--nsigma N` can be passed, this will
 automatically set the threshold to be 50% of background trials.
+The same steps can be performed with the corresponding `do_XX_YY` functions for stacking, templates, skysca
 
 ## Combine PS trials
 Once all the background trials are created we need to combine them into one nested dictionary for all paramaters:
