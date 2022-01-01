@@ -221,7 +221,7 @@ def unblind_sourcelist(
             'hottest source': min_source,
             'pre-trial p-value': '{:3.3e}'.format(pval_min),
             'pre-trial n-sigma': '{:3.2f}'.format(pval_min_nsigma),
-            'trial-factor': '{:3.2f}'.format(pval_min/pval),
+            'trial-factor': '{:3.2f}'.format(pval/pval_min),
         },
     )
 
