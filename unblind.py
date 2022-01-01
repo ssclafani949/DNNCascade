@@ -178,6 +178,15 @@ def unblind_gp(
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
     if temp == 'fermibubbles':
+
+        # safety check to make sure the correct bg trials exist
+        # ToDo: csky.bk.get_best should be modified to check for maximum
+        # allowed difference, if provided.
+        c_keys = list(sig['poisson']['cutoff'].keys())
+        if not np.any(np.abs([c - cutoff for c in c_keys]) < 1e-3):
+            msg = 'Cutoff {:3.4f} does not exist in bg trials: {}!'
+            raise ValueError(msg.format(cutoff, c_keys))
+
         sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
     else:
         sig_trials = sig['poisson']['nsig']
