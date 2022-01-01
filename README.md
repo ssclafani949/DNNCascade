@@ -162,6 +162,9 @@ The most significant source from the source list will be reported. In order to p
         
         # perform correlated trials
         python trials.py do-correlated-trials-sourcelist --n-trials <ntrials> --cpus <ncpus> 
+        
+        # collect correlated background trials
+        python trials.py collect-correlated-trials-sourcelist
 
 
 

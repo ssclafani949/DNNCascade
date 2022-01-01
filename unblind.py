@@ -56,10 +56,10 @@ pass_state = click.make_pass_decorator(State)
 
 
 class bcolors:
-        GREEN = '\033[92m'
-        YELLOW = '\033[93m'
-        RED = '\033[91m'
-        ENDC = '\033[0m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
 
 
 def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
@@ -148,13 +148,27 @@ def unblind_sourcelist(
     ana = state.ana
     dir = cy.utils.ensure_dir('{}/ps/'.format(state.base_dir))
 
+    # load correlated MultiTrialRunner background trials
+    print('Loading correlated background trials...')
+    base_dir = os.path.join(state.base_dir, 'ps/correlated_trials')
+    bgfile_corr = '{}/correlated_bg.npy'.format(base_dir)
+    trials_corr = np.load(bgfile_corr, allow_pickle=True)
+    bg_corr = cy.dists.TSD(trials_corr)
+
+    # load bkg trials at source declinations
+    print('Loading background trials at source declinations...')
+    bgfile = '{}/pretrial_bgs.npy'.format(base_dir)
+    bgs = np.load(bgfile, allow_pickle=True)
+    assert np.alltrue([isinstance(bg, cy.dists.TSD) for bg in bgs])
+    assert len(bgs) == len(sourcelist)
+
     def get_tr(dec, ra,  truth):
         src = cy.utils.sources(ra, dec, deg=False)
         conf = cg.get_ps_conf(src=src, gamma=2.0)
         tr = cy.get_trial_runner(ana=ana, conf=conf, TRUTH=truth)
         return tr, src
 
-    for source in sourcelist:
+    for i, source in enumerate(sourcelist):
 
         tr, src = get_tr(
             dec=np.radians(source[2]),
@@ -165,18 +179,58 @@ def unblind_sourcelist(
             print('UNBLINDING!!!')
 
         trial = tr.get_one_fit(TRUTH=truth, seed=seed, logging=logging)
-        print(trial)
-        print(source[0], trial[0])
-    t1 = now()
+
+        # compute pre-trial p-value for given source
+        bg = bgs[i]
+        pval = bg.sf(trial[0], fit=False)
+        pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
+        trial.append(pval)
+        trial.append(pval_nsigma)
+
+        # print result
+        msg = '#{:03d} | ts: {:5.2f} | ns: {:6.2f} | gamma: {:4.2f}'
+        msg += ' | n-sigma: {:5.2f} | {}'
+        msg = msg.format(i, *trial[:3], pval_nsigma, source[0])
+
+        if pval_nsigma < 3.:
+            print(msg)
+        elif pval_nsigma < 5.:
+            print(bcolors.YELLOW + msg + bcolors.ENDC)
+        else:
+            print(bcolors.RED + msg + bcolors.ENDC)
+
+        # append results of this source to overall trials
+        trials.append(trial)
+
+    # get hottest source
+    min_idx = np.argmin(np.array(trials)[:, 3])
+    min_source = sourcelist[min_idx][0]
+    pval_min = trials[min_idx][3]
+
+    # compute trial-corrected p-value
+    ts_mlog10p = -np.log10(pval_min)
+    pval = bg_corr.sf(ts_mlog10p, fit=False)
+    pval_nsigma = bg.sf_nsigma(ts_mlog10p, fit=False)
+
+    # print results to console
+    print_result(
+        title='Results for source list',
+        n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
+        add_items={
+            'hottest source': min_source,
+            'pre-trial p-value': pval_min,
+        },
+    )
+
     flush()
-    trials.append(trial)
+    t1 = now()
     if truth:
         out_dir = cy.utils.ensure_dir('{}/ps/results/'.format(
             state.base_dir, state.ana_name))
         out_file = '{}/fulllist_unblinded.npy'.format(
             out_dir)
         print ('-> {}'.format(out_file))
-        np.save(out_file, trials)
+        np.save(out_file, (trials, pval, pval_nsigma, min_idx, min_source))
 
 
 @cli.command()

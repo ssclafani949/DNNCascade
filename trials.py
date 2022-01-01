@@ -1173,6 +1173,8 @@ def do_correlated_trials_sourcelist (
     ana = state.ana
     print('Loading Backgrounds')
     bgs = np.load('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), allow_pickle=True)
+    assert len(bgs) == len(sourcelist)
+
     def get_tr(dec, ra, cpus=cpus):
         src = cy.utils.sources(ra=ra, dec=dec, deg=True)
         conf = cg.get_ps_conf(src=src, gamma=2.0)
@@ -1180,6 +1182,8 @@ def do_correlated_trials_sourcelist (
         return tr
     print('Getting trial runners')
     trs = [get_tr(d,r) for d,r in zip(decs, ras)]
+    assert len(trs) == len(bgs)
+
     tr_inj = trs[0]
     multr = cy.trial.MultiTrialRunner(
         ana,
@@ -1193,7 +1197,6 @@ def do_correlated_trials_sourcelist (
         mp_cpus=cpus,
     )
     trials = multr.get_many_fits(n_trials)
-    t = trials.as_dataframe
     t1 = now ()
     flush ()
     out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/correlated_bg/'.format (
@@ -1201,7 +1204,35 @@ def do_correlated_trials_sourcelist (
     out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format (
         out_dir, n_trials, seed)
     print ('-> {}'.format (out_file))
-    t.to_pickle (out_file)
+    np.save(out_file, trials.as_array)
+
+
+@cli.command()
+@pass_state
+def collect_correlated_trials_sourcelist(state):
+    """
+    Collect all the correlated MultiTrialRunner background trials from the
+    do-correlated-trials-sourcelist into one list. These will be used to
+    trial-correct the p-value of the hottest source in the source list.
+    """
+    base_dir = '{}/ps/correlated_trials/'.format(state.base_dir)
+    trials = cy.bk.get_all(
+        base_dir + 'correlated_bg/', 'correlated_trials_*.npy',
+        merge=np.concatenate,
+        post_convert=(lambda x: cy.utils.Arrays(x)),
+    )
+
+    # find and add hottest source
+    # shape: [n_trials, n_sources]
+    mlog10ps = np.stack([
+        trials[k] for k in trials.keys() if k[:8] == 'mlog10p_'], axis=1)
+
+    ts_max_mlog10ps = np.max(mlog10ps, axis=1)
+
+    trials['ts'] = ts_max_mlog10ps
+
+    with open('{}correlated_bg.npy'.format(base_dir), 'wb') as f:
+        pickle.dump(trials, f, -1)
 
 
 if __name__ == '__main__':
