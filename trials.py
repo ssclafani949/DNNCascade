@@ -941,7 +941,7 @@ def collect_stacking_sig (state, inputdir):
 
 @cli.command ()
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
-@click.option ('--fit/--nofit', default=True, help='Use chi2fit')
+@click.option ('--fit/--nofit', default=False, help='Use chi2fit')
 @click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
 @pass_state

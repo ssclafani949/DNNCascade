@@ -97,10 +97,54 @@ To compute the 3-sigma discovery potential we can do the following:
 
 Note that this uses csky's method `csky.bk.get_best` under the hood. This method will try to find the closest background and signal trials to the ones defined via the flags. This functionality is very useful when interpolating on a grid of gamma, dec or cutoff values, for instance. However, it can be mis-leading when only spot-checks are performed and only trials for a single gamma, declination or cutoff value are computed. Make sure that the trials exist for which the sensitivity is computed!
 
-A similar analysis chain can be performed with the functions for stacking, templates, skyscan
-
+A similar analysis chain can be performed with the functions for stacking, templates, skyscan. 
 Of note is the syntax for templates, which is slightly different and the template must be at the end:
 
 `python trials.py do-gp-trials --n-trials 1000 pi0 `
 
 Possible template arguments are: `pi0`, `kra5`, `kra50`, `fermibubbles`.
+For convenience, examples of the analysis chains for the catalog stacking searches and the galactic plane templates are shown below.
+
+
+## Analysis chain for galactic plane templates
+
+For convenience, the analysis chain for a reduced number of trials and signal injections for the galactic plane templates is outlined below:
+
+        # run background trials
+        python trials.py do-gp-trials --n-trials 20000 --cpus 15 <template>
+        
+        # run signal trials (for fermibubbles an additional flag `--cutoff <cutoff>` is needed)
+        python trials.py do-gp-trials --n-trials 100 --cpus 15 --n-sig <n-sig> <template>
+        
+        # collect trials (this collects both signal and background trials)
+        python trials.py collect-gp-trials
+        
+        # find sensitivity (for discovery potential pass flag `--nsigma <N>`)
+        python trials.py find-gp-n-sig --nofit 
+        
+Insert each of [`pi0`, `kra5`, `kra50`, `fermibubbles`] for `<template>` and for the fermibubbles each of [50, 100, 500, None] for `<cutoff>`. Note that `None` can't be passed in. However, this is the default value for `--cutoff`, so the flag `--cutoff` does not need to be set in this case. A reduced set of different `<n-sig>` values for testing could be: [50, 100, 200, 300].
+
+
+## Analysis chain for stacking analyses
+
+For convenience, the analysis chain for a reduced number of trials and signal injections for the stacking catalogs is outlined below:
+
+        # run background trials
+        python trials.py do-stacking-trials --n-trials 1000 --cpus 15 --catalog <catalog>
+        
+        # run signal trials
+        python trials.py do-stacking-trials --n-trials 100 --cpus 15- -gamma 2.0 --n-sig <n-sig> --catalog <catalog>
+        
+        # collect background trials
+        python trials.py collect-stacking-bg
+        
+        # collect signal trials
+        python trials.py collect-stacking-sig
+        
+        # find sensitivity (for discovery potential pass flag `--nsigma <N>`)
+        python trials.py find-stacking-n-sig --nofit 
+
+
+Insert each of [`snr`, `pwn`, `unid`] for `<catalog>`.
+A reduced set of different `<n-sig>` values for testing could be: [10, 20, 50].
+
