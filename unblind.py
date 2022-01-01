@@ -134,6 +134,12 @@ def unblind_gp (
     ana = state.ana
     cutoff_GeV = cutoff * 1e3
 
+    if temp == 'fermibubbles' and cutoff not in [50, 100, 500]:
+        raise ValueError(
+            'Fermibubbles are only being unblinded for cutoffs 50/100/500 TeV,'
+            'but not for {:3.3f} TeV'.format(cutoff).
+        )
+
     def get_tr(template_str, TRUTH):
         gp_conf = cg.get_gp_conf(
             template_str=template_str,
