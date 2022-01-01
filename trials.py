@@ -2,6 +2,7 @@
 
 import csky as cy
 import numpy as np
+import pandas as pd
 import healpy as hp
 import pickle, datetime, socket
 import histlite as hl

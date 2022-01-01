@@ -8,7 +8,6 @@ import histlite as hl
 import astropy
 now = datetime.datetime.now
 import matplotlib.pyplot as plt
-import pandas as pd
 import click, sys, os, time
 import config as cg
 flush = sys.stdout.flush
