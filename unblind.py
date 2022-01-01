@@ -216,7 +216,7 @@ def unblind_sourcelist(
     # print results to console
     print_result(
         title='Results for source list',
-        n_trials=len(bg),
+        n_trials=len(bgs[min_idx]),
         trial=trials[min_idx],
         pval=pval,
         pval_nsigma=pval_nsigma,
