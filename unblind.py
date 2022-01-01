@@ -178,7 +178,7 @@ def unblind_gp(
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
     if temp == 'fermibubbles':
-        sig_trials = sig['poisson']['cutoff'][cutoff]['nsig']
+        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
     else:
         sig_trials = sig['poisson']['nsig']
     b = sig_trials[0.0]['ts']
