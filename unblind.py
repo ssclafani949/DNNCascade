@@ -137,7 +137,7 @@ def unblind_gp (
     if temp == 'fermibubbles' and cutoff not in [50, 100, 500]:
         raise ValueError(
             'Fermibubbles are only being unblinded for cutoffs 50/100/500 TeV,'
-            'but not for {:3.3f} TeV'.format(cutoff).
+            + 'but not for {:3.3f} TeV'.format(cutoff).
         )
 
     def get_tr(template_str, TRUTH):
