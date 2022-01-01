@@ -90,7 +90,7 @@ def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
     print('    ns: {:3.3f}'.format(trial[1]))
     for key, value in add_items.items():
         print('    {}: {}'.format(key, value))
-    print('    p-value: {}'.format(pval))
+    print('    p-value: {:3.3e}'.format(pval))
     print('    n-sigma: {:3.2f}'.format(pval_nsigma))
 
     if pval_nsigma < 3.:
@@ -219,8 +219,9 @@ def unblind_sourcelist(
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
         add_items={
             'hottest source': min_source,
-            'pre-trial p-value': '{:3.2f}'.format(pval_min),
+            'pre-trial p-value': '{:3.3e}'.format(pval_min),
             'pre-trial n-sigma': '{:3.2f}'.format(pval_min_nsigma),
+            'trial-factor': '{:3.2f}'.format(pval_min/pval),
         },
     )
 

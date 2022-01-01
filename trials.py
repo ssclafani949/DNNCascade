@@ -1227,9 +1227,8 @@ def collect_correlated_trials_sourcelist(state):
     mlog10ps = np.stack([
         trials[k] for k in trials.keys() if k[:8] == 'mlog10p_'], axis=1)
 
-    ts_max_mlog10ps = np.max(mlog10ps, axis=1)
-
-    trials['ts'] = ts_max_mlog10ps
+    trials['ts'] = np.max(mlog10ps, axis=1)
+    trials['idx_hottest'] = np.argmax(mlog10ps, axis=1)
 
     with open('{}correlated_bg.npy'.format(base_dir), 'wb') as f:
         pickle.dump(trials, f, -1)
