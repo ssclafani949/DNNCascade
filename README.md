@@ -122,7 +122,7 @@ For convenience, the analysis chain for a reduced number of trials and signal in
         # find sensitivity (for discovery potential pass flag `--nsigma <N>`)
         python trials.py find-gp-n-sig --nofit 
         
-Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500, None]` for `<cutoff>`. Note that `None` can't be passed in. However, this is the default value for `--cutoff`, so the flag `--cutoff` does not need to be set in this case. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
+Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
 
 
 ## Analysis chain for stacking analyses
