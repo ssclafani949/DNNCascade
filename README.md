@@ -154,7 +154,7 @@ A reduced set of different `<n-sig>` values for testing could be: `[10, 20, 50]`
 The most significant source from the source list will be reported. In order to perform the trial correction, correlated trials are considered by utilizing csky's `MultiTrialRunner`. 
 
         # run background trials at exact declinations of sources
-        # <source-num> runs from 0 to 109 for each of the 110 sources in the list
+        # <source-num> runs from 0 to 108 for each of the 109 sources in the list
         python trials.py do-bkg-trials-sourcelist --n-trials <ntrials> --cpus <ncpus> --sourcenum <source-num>
         
         # collect background trials
