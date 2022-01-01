@@ -216,7 +216,10 @@ def unblind_sourcelist(
     # print results to console
     print_result(
         title='Results for source list',
-        n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
+        n_trials=len(bg),
+        trial=trials[min_idx],
+        pval=pval,
+        pval_nsigma=pval_nsigma,
         add_items={
             'hottest source': min_source,
             'pre-trial p-value': '{:3.3e}'.format(pval_min),
