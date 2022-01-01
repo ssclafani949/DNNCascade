@@ -178,9 +178,9 @@ def unblind_gp(
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
     if temp == 'fermibubbles':
-        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
+        sig_trials = sig['poisson']['cutoff'][cutoff]['nsig']
     else:
-        sig_trials = cy.bk.get_best(sig, 'poisson', 'nsig')
+        sig_trials = sig['poisson']['nsig']
     b = sig_trials[0.0]['ts']
     bg = cy.dists.TSD(b)
     print('Number of Background Trials: {}'.format(len(bg)))
@@ -279,7 +279,7 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     else:
         bgfile = '{}/bg.dict'.format(base_dir)
     bg = np.load(bgfile, allow_pickle=True)
-    ts_to_p = lambda dec, ts: cy.dists.ts_to_p(bg['dec'], np.degrees(dec), ts, fit=True)
+    ts_to_p = lambda dec, ts: cy.dists.ts_to_p(bg['dec'], np.degrees(dec), ts, fit=fit)
     t0 = now()
     ana = state.ana
     conf = cg.get_ps_conf(src=None, gamma=2.0)
