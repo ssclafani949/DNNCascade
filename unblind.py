@@ -55,6 +55,56 @@ class State (object):
 pass_state = click.make_pass_decorator(State)
 
 
+class bcolors:
+        GREEN = '\033[92m'
+        YELLOW = '\033[93m'
+        RED = '\033[91m'
+        ENDC = '\033[0m'
+
+
+def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
+    """Print unblinding results to console
+
+    Parameters
+    ----------
+    title : str
+        The name of the analysis result. Will be displayed as title
+        of result box.
+    n_trials : int
+        The number of background trials on which the p-values are based on.
+    trial : tuple
+        The trial result.
+    pval : float
+        The p-value for the given trial.
+    pval_nsigma : float
+        The p-value in terms of n-sigma for the given trial.
+    add_items : dict, optional
+        Additional items to print.
+    """
+    print()
+    print('============================================')
+    print('=== {}'.format(title))
+    print('============================================')
+    print('    Number of Background Trials: {}'.format(n_trials))
+    print('    TS: {:3.3f}'.format(trial[0]))
+    print('    ns: {:3.3f}'.format(trial[1]))
+    for key, value in add_items.items():
+        print('    {}: {}'.format(key, value))
+    print('    p-value: {}'.format(pval))
+    print('    n-sigma: {:3.2f}'.format(pval_nsigma))
+
+    if pval_nsigma < 3.:
+        msg = bcolors.RED + '    --> No significant discovery!'
+    elif pval_nsigma < 5.:
+        msg = bcolors.YELLOW + '    --> Found evidence for a source!'
+    else:
+        msg = bcolors.GREEN + '    --> Found a source!'
+    msg += bcolors.ENDC
+    print(msg)
+    print('============================================')
+    print()
+
+
 @click.group(invoke_without_command=True, chain=True)
 @click.option('-a', '--ana', 'ana_name', default='DNNC', help='Dataset title')
 @click.option('--ana-dir', default=ana_dir, type=click.Path())
@@ -192,14 +242,19 @@ def unblind_gp(
         sig_trials = sig['poisson']['nsig']
     b = sig_trials[0.0]['ts']
     bg = cy.dists.TSD(b)
-    print('Number of Background Trials: {}'.format(len(bg)))
     trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
-    print('TS: {} ns: {}'.format(trial[0], trial[1]))
     pval = bg.sf(trial[0], fit=False)
     pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
-    print('pval : {}'.format(pval))
     trial.append(pval)
+    trial.append(pval_nsigma)
+
+    # print results to console
+    print_result(
+        title='Results for GP template: {}'.format(temp),
+        n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
+    )
     flush()
+
     if truth:
         if temp == 'fermibubbles':
             out_dir = cy.utils.ensure_dir('{}/gp/results/{}/'.format(
@@ -250,14 +305,19 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         bgfile = '{}/{}_bg.dict'.format(base_dir, catalog)
         b = np.load(bgfile, allow_pickle=True)
         bg = cy.dists.TSD(b)
-        print('Number of Background Trials: {}'.format(len(bg)))
         trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
-        print('TS: {} ns: {}'.format(trial[0], trial[1]))
         pval = bg.sf(trial[0], fit=False)
         pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
-        print('pval : {}'.format(pval))
         trial.append(pval)
+        trial.append(pval_nsigma)
+
+        # print results to console
+        print_result(
+            title='Results for stacking catalog: {}'.format(catalog),
+            n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
+        )
         flush()
+
         if truth:
             out_dir = cy.utils.ensure_dir('{}/stacking/results/{}/'.format(
                 state.base_dir, catalog))
