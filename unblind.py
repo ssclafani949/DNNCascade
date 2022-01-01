@@ -197,7 +197,7 @@ def unblind_sourcelist(
         elif pval_nsigma < 5.:
             print(bcolors.YELLOW + msg + bcolors.ENDC)
         else:
-            print(bcolors.RED + msg + bcolors.ENDC)
+            print(bcolors.GREEN + msg + bcolors.ENDC)
 
         # append results of this source to overall trials
         trials.append(trial)
