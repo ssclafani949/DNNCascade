@@ -206,6 +206,7 @@ def unblind_sourcelist(
     min_idx = np.argmin(np.array(trials)[:, 3])
     min_source = sourcelist[min_idx][0]
     pval_min = trials[min_idx][3]
+    pval_min_nsigma = trials[min_idx][4]
 
     # compute trial-corrected p-value
     ts_mlog10p = -np.log10(pval_min)
@@ -218,7 +219,8 @@ def unblind_sourcelist(
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
         add_items={
             'hottest source': min_source,
-            'pre-trial p-value': pval_min,
+            'pre-trial p-value': '{:3.2f}'.format(pval_min),
+            'pre-trial n-sigma': '{:3.2f}'.format(pval_min_nsigma),
         },
     )
 
