@@ -1087,6 +1087,121 @@ def do_sky_scan_trials(state, poisson,
     np.save (out_file, trials)
 
 
+@cli.command()
+@click.option ('--sourcenum', default=1, type=int, help='what source in the list')
+@click.option ('--n-trials', default=1000, type=int, help='number of trials to run')
+@click.option ('--cpus', default=1, type=int, help='ncpus')
+@click.option ('--seed', default=None, type=int, help='Trial injection seed')
+@pass_state
+def do_bkg_trials_sourcelist (
+        state, sourcenum, n_trials, cpus, seed, logging=True):
+    """
+    Do Background Trials at the exact declination of each source.
+    Used as an input for the MTR correlated trials to correctly calculate
+    pre-trial pvalues
+    """
+    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle')
+    ras = sourcelist.RA.values
+    decs = sourcelist.DEC.values
+    names = sourcelist.Names.values
+
+    if seed is None:
+        seed = int (time.time () % 2**32)
+
+    t0 = now ()
+    ana = state.ana
+    def get_tr(dec, ra, cpus=cpus):
+        src = cy.utils.sources(ra=ra, dec=dec, deg=True)
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus )
+        return tr
+    dec = decs[sourcenum]
+    ra = ras[sourcenum]
+    name = names[sourcenum]
+
+    tr = get_tr(dec=dec, ra=ra, cpus=cpus)
+
+    print('Doing Background Trials for Source {} : {}'.format(sourcenum, name))
+    print('DEC {} : RA {}'.format(dec, ra))
+    print('Seed: {}'.format(seed))
+    trials = tr.get_many_fits(n_trials, seed=seed)
+    t1 = now ()
+    flush ()
+    out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/bg/source_{}'.format (
+        state.base_dir, sourcenum))
+    out_file = '{}/bkg_trials_{}_seed_{}.npy'.format (
+        out_dir, n_trials, seed)
+    print ('-> {}'.format (out_file))
+    np.save (out_file, trials.as_array)
+
+@cli.command()
+@pass_state
+def collect_bkg_trials_sourcelist( state ):
+    """
+    Collect all the background trials from do-bkg-trials-sourcelist into one list to feed into
+    the MTR for calculation of pre-trial pvalues.  Unlike do-ps-trials, these are done at the exact
+    declination of each source
+    """
+    bgs = []
+    numsources = 109
+    base_dir = '{}/ps/correlated_trials/bg/'.format(state.base_dir)
+    for i in range(numsources):
+        bg = cy.bk.get_all(base_dir +'source_{}/'.format(i), '*.npy',
+            merge=np.concatenate, post_convert =  (lambda x: cy.dists.TSD(cy.utils.Arrays(x))))
+        bgs.append(bg)
+    np.save('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), bgs)
+
+
+@cli.command()
+@click.option ('--n-trials', default=10, type=int, help='number of trials to run')
+@click.option ('--cpus', default=1, type=int, help='ncpus')
+@click.option ('--seed', default=None, type=int, help='Trial injection seed')
+@pass_state
+def do_correlated_trials_sourcelist (
+        state, n_trials, cpus, seed,  logging=True):
+    """
+    Use MTR for correlated background trials evaluating at each source in the sourcelist
+    """
+    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle')
+    ras = sourcelist.RA.values
+    decs = sourcelist.DEC.values
+    if seed is None:
+        seed = int (time.time () % 2**32)
+
+    t0 = now ()
+    ana = state.ana
+    print('Loading Backgrounds')
+    bgs = np.load('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), allow_pickle=True)
+    def get_tr(dec, ra, cpus=cpus):
+        src = cy.utils.sources(ra=ra, dec=dec, deg=True)
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
+        return tr
+    print('Getting trial runners')
+    trs = [get_tr(d,r) for d,r in zip(decs, ras)]
+    tr_inj = trs[0]
+    multr = cy.trial.MultiTrialRunner(
+        ana,
+        # bg+sig injection trial runner (produces trials)
+        tr_inj,
+        # llh test trial runners (perform fits given trials)
+        trs,
+        # background distrubutions
+        bgs=bgs,
+        # use multiprocessing
+        mp_cpus=cpus,
+    )
+    trials = multr.get_many_fits(n_trials)
+    t = trials.as_dataframe
+    t1 = now ()
+    flush ()
+    out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/correlated_bg/'.format (
+        state.base_dir, state.ana_name))
+    out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format (
+        out_dir, n_trials, seed)
+    print ('-> {}'.format (out_file))
+    t.to_pickle (out_file)
+
 
 if __name__ == '__main__':
     exe_t0 = now ()
