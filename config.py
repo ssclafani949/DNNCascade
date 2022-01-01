@@ -13,6 +13,7 @@ job_base = 'baseline_analysis'
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     repo = cy.selections.Repository(
         local_root='/data/i3store/users/ssclafani/data/analyses'.format(username))
+    template_repo = repo
     ana_dir = cy.utils.ensure_dir(
         '/data/i3store/users/{}/data/analyses'.format(username))
     base_dir = cy.utils.ensure_dir(
@@ -20,6 +21,8 @@ if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     job_basedir = '/data/i3home/{}/submitter_logs'.format(username)
 else:
     repo = cy.selections.Repository()
+    template_repo = cy.selections.Repository(
+        local_root='/data/ana/PointSource/DNNCascade/csky_data')
     ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))
     base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
     ana_dir = '{}/ana'.format (base_dir)
@@ -64,7 +67,7 @@ def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
 
 def get_gp_conf(
         template_str, gamma=None, cutoff_GeV=np.inf,
-        base_dir=base_dir, repo=repo):
+        base_dir=base_dir, repo=template_repo):
     """Get csky trial runner config for Galactic Plane Template
 
     Parameters
