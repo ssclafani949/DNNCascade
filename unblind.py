@@ -230,14 +230,14 @@ def unblind_stacking (
             np.save (out_file, trials)
 
 
-@cli.command ()
+@cli.command()
 @click.option('--nside', default=128, type=int)
 @click.option('--cpus', default=1, type=int)
-@click.option('--seed', default=None, type = int)
-@click.option ('--TRUTH', default=None, type=bool, help='Must be Set to TRUE to unblind')
+@click.option('--seed', default=None, type=int)
+@click.option('--fit/--nofit', default=False, help='Chi2 Fit or Not')
+@click.option('--TRUTH', default=None, type=bool, help='Must be Set to TRUE to unblind')
 @pass_state
-def unblind_skyscan(state, 
-                    nside, cpus, seed, truth):
+def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     """
     Unblind the skyscan and save the true map
     """
@@ -247,7 +247,10 @@ def unblind_skyscan(state,
     random = cy.utils.get_random (seed) 
     print('Seed: {}'.format(seed))
     base_dir = state.base_dir + '/ps/trials/DNNC'
-    bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    if fit:
+        bgfile = '{}/bg_chi2.dict'.format (base_dir)
+    else:
+        bgfile = '{}/bg.dict'.format (base_dir)
     bg = np.load (bgfile, allow_pickle=True)
     ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
     t0 = now ()
@@ -274,8 +277,6 @@ def unblind_skyscan(state,
             out_dir,  seed)
         print ('-> {}'.format (out_file))
         np.save (out_file, trials)
-
-
 
 
 if __name__ == '__main__':

@@ -104,7 +104,7 @@ Of note is the syntax for templates, which is slightly different and the templat
 
 Possible template arguments are: `pi0`, `kra5`, `kra50`, `fermibubbles`.
 For convenience, examples of the analysis chains for the catalog stacking searches and the galactic plane templates are shown below.
-
+       
 
 ## Analysis chain for galactic plane templates
 
@@ -147,4 +147,21 @@ For convenience, the analysis chain for a reduced number of trials and signal in
 
 Insert each of `[snr, pwn, unid]` for `<catalog>`.
 A reduced set of different `<n-sig>` values for testing could be: `[10, 20, 50]`.
+
+
+## Correlated trials for source list
+
+The most significant source from the source list will be reported. In order to perform the trial correction, correlated trials are considered by utilizing csky's `MultiTrialRunner`. 
+
+        # run background trials at exact declinations of sources
+        # <source-num> runs from 0 to 109 for each of the 110 sources in the list
+        python trials.py do-bkg-trials-sourcelist --n-trials <ntrials> --cpus <ncpus> --sourcenum <source-num>
+        
+        # collect background trials
+        python trials.py collect-bkg-trials-sourcelist
+        
+        # perform correlated trials
+        python trials.py do-correlated-trials-sourcelist --n-trials <ntrials> --cpus <ncpus> 
+
+
 
