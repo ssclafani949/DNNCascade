@@ -22,7 +22,7 @@ if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
 else:
     repo = cy.selections.Repository()
     template_repo = cy.selections.Repository(
-        local_root='/data/ana/PointSource/DNNCascade/csky_data')
+        local_root='/data/ana/analyses/NuSources/2021_DNNCascade_analyses')
     ana_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses'.format(username))
     base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
     ana_dir = '{}/ana'.format (base_dir)
