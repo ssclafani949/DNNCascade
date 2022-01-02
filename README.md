@@ -133,7 +133,7 @@ For convenience, the analysis chain for a reduced number of trials and signal in
         python trials.py do-stacking-trials --n-trials 1000 --cpus 12 --catalog <catalog>
         
         # run signal trials
-        python trials.py do-stacking-trials --n-trials 100 --cpus 12- -gamma 2.0 --n-sig <n-sig> --catalog <catalog>
+        python trials.py do-stacking-trials --n-trials 100 --cpus 12 --gamma 2.0 --n-sig <n-sig> --catalog <catalog>
         
         # collect background trials
         python trials.py collect-stacking-bg
