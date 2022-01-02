@@ -385,8 +385,8 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
         # print result
         msg = (
             '    ts: {:5.2f} | ns: {:6.2f} | n-sigma: {:5.2f} '
-            '| cutoff: {:3.1f} TeV'
-        ).format(*trial[:2], pval_nsigma, cutoff)
+            '| cutoff: {:5.1f} TeV | n-trials: {:7d}'
+        ).format(*trial[:2], pval_nsigma, cutoff, len(bgs[i]))
 
         if pval_nsigma < 3.:
             result_msgs.append(msg)
