@@ -122,6 +122,7 @@ For convenience, the analysis chain for a reduced number of trials and signal in
         # find sensitivity (for discovery potential pass flag `--nsigma <N>`)
         python trials.py find-gp-n-sig --nofit 
         
+        
 Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
 
 
@@ -166,5 +167,15 @@ The most significant source from the source list will be reported. In order to p
         # collect correlated background trials
         python trials.py collect-correlated-trials-sourcelist
 
+
+## Correlated trials for Fermibubble cutoffs
+
+In order to perform the trial correction for the most significant cutoff energy for the Fermi bubble template, correlated trials are considered with csky's `MultiTrialRunner`. We can use the trials for each cutoff `[50, 100, 500] TeV` that we've computed before and utilize these for the `MultiTrialRunner` to compute correlated trials.
+
+        # perform correlated trials
+        python trials.py do-correlated-trials-fermibubbles --cpus <ncpus> --n-trials <ntrials>
+        
+        # collect correlated background trials
+        python trials.py collect-correlated-trials-fermibubbles
 
 

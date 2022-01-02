@@ -179,6 +179,7 @@ def unblind_sourcelist(
             print('UNBLINDING!!!')
 
         trial = tr.get_one_fit(TRUTH=truth, seed=seed, logging=logging)
+        assert len(trial) == 3
 
         # compute pre-trial p-value for given source
         bg = bgs[i]
@@ -211,7 +212,7 @@ def unblind_sourcelist(
     # compute trial-corrected p-value
     ts_mlog10p = -np.log10(pval_min)
     pval = bg_corr.sf(ts_mlog10p, fit=False)
-    pval_nsigma = bg.sf_nsigma(ts_mlog10p, fit=False)
+    pval_nsigma = bg_corr.sf_nsigma(ts_mlog10p, fit=False)
 
     # print results to console
     print_result(
@@ -245,36 +246,29 @@ def unblind_sourcelist(
 @click.option('--cpus', default=1, type=int)
 @click.option('--TRUTH', default=None, type=bool,
               help='Must be Set to TRUE to unblind')
-@click.option('-c', '--cutoff', default=np.inf, type=float,
-              help='exponential cutoff energy (TeV)')
 @pass_state
-def unblind_gp(
-            state, temp,
-            seed, cpus,
-            truth, cutoff, logging=True):
+def unblind_gp(state, temp, seed, cpus, truth, logging=True):
+    """Unblind galactic plane templates kra5, kra50, pi0
     """
-    Unblind a particular galactic plane templaet
-    """
+
+    # check if valid template name was passed
     temp = temp.lower()
+    if temp not in ['kra5', 'kra50', 'pi0']:
+        if temp == 'fermibubbles':
+            msg = 'To unblind Fermi bubbles use: `unblind-fermibubbles`'
+            raise ValueError(msg)
+        else:
+            raise ValueError('Unknown template: {}!'.format(temp))
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
     print('Seed: {}'.format(seed))
     ana = state.ana
-    cutoff_GeV = cutoff * 1e3
-
-    if temp == 'fermibubbles' and cutoff not in [50, 100, 500]:
-        raise ValueError(
-            'Fermibubbles are only being unblinded for cutoffs 50/100/500 TeV,'
-            + ' but not for "{:3.3f} TeV"!'.format(cutoff)
-        )
 
     def get_tr(template_str, TRUTH):
         gp_conf = cg.get_gp_conf(
-            template_str=template_str,
-            cutoff_GeV=cutoff_GeV,
-            base_dir=state.base_dir
-        )
+            template_str=template_str, base_dir=state.base_dir)
         tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
 
@@ -283,26 +277,14 @@ def unblind_gp(
     if truth:
         print('UNBLINDING!!!')
 
+    # get background trials
     print('Loading BKG TRIALS')
     base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(
         state.ana_name, temp)
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
-    if temp == 'fermibubbles':
+    bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
 
-        # safety check to make sure the correct bg trials exist
-        # ToDo: csky.bk.get_best should be modified to check for maximum
-        # allowed difference, if provided.
-        c_keys = list(sig['poisson']['cutoff'].keys())
-        if not np.any(np.abs([c - cutoff for c in c_keys]) < 1e-3):
-            msg = 'Cutoff {:3.4f} does not exist in bg trials: {}!'
-            raise ValueError(msg.format(cutoff, c_keys))
-
-        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
-    else:
-        sig_trials = sig['poisson']['nsig']
-    b = sig_trials[0.0]['ts']
-    bg = cy.dists.TSD(b)
     trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
     pval = bg.sf(trial[0], fit=False)
     pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
@@ -317,16 +299,145 @@ def unblind_gp(
     flush()
 
     if truth:
-        if temp == 'fermibubbles':
-            out_dir = cy.utils.ensure_dir('{}/gp/results/{}/'.format(
-                state.base_dir, temp))
-            out_file = '{}/{}_cutoff_{}_unblinded.npy'.format(
-                out_dir, temp, cutoff)
+        out_dir = cy.utils.ensure_dir('{}/gp/results/{}'.format(
+            state.base_dir, temp))
+        out_file = '{}/{}_unblinded.npy'.format(
+            out_dir, temp)
+        print ('-> {}'.format(out_file))
+        np.save(out_file, trials)
+
+
+@cli.command()
+@click.option('--seed', default=None, type=int)
+@click.option('--cpus', default=1, type=int)
+@click.option('--TRUTH', default=None, type=bool,
+              help='Must be Set to TRUE to unblind')
+@pass_state
+def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
+    """Unblind Fermi bubble templates with cutoffs 50/100/500 TeV
+    """
+    if seed is None:
+        seed = int(time.time() % 2**32)
+    random = cy.utils.get_random(seed)
+    print('Seed: {}'.format(seed))
+    ana = state.ana
+
+    cutoffs = [50, 100, 500]
+
+    def get_tr(cutoff, TRUTH):
+        cutoff_GeV = cutoff * 1e3
+        gp_conf = cg.get_gp_conf(
+            template_str='fermibubbles',
+            cutoff_GeV=cutoff_GeV,
+            base_dir=state.base_dir
+        )
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
+        return tr
+
+    t0 = now()
+    if truth:
+        print('UNBLINDING!!!')
+
+    # ---------------------
+    # Get background trials
+    # ---------------------
+    # load correlated MultiTrialRunner background trials
+    print('Loading correlated background trials...')
+    base_dir = state.base_dir + '/gp/trials/{}/fermibubbles/'.format(
+        state.ana_name)
+    bgfile_corr = '{}/correlated_trials/correlated_bg.npy'.format(base_dir)
+    trials_corr = np.load(bgfile_corr, allow_pickle=True)
+    bg_corr = cy.dists.TSD(trials_corr)
+
+    # load bkg trials for each cutoff
+    print('Loading BKG TRIALS')
+    sigfile = '{}/trials.dict'.format(base_dir)
+    sig = np.load(sigfile, allow_pickle=True)
+    bgs = []
+    for cutoff in cutoffs:
+        # safety check to make sure the correct bg trials exist
+        # ToDo: csky.bk.get_best should be modified to check for maximum
+        # allowed difference, if provided.
+        c_keys = list(sig['poisson']['cutoff'].keys())
+        if not np.any(np.abs([c - cutoff for c in c_keys]) < 1e-3):
+            msg = 'Cutoff {:3.4f} does not exist in bg trials: {}!'
+            raise ValueError(msg.format(cutoff, c_keys))
+
+        # get background trials
+        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
+        bgs.append(cy.dists.TSD(sig_trials[0.0]['ts']))
+
+    # -------------------
+    # Unblind each cutoff
+    # -------------------
+    trials = []
+    result_msgs = []
+    for i, cutoff in enumerate(cutoffs):
+        tr = get_tr(cutoff=cutoff, TRUTH=truth)
+
+        trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
+        assert len(trial) == 2
+        pval = bgs[i].sf(trial[0], fit=False)
+        pval_nsigma = bgs[i].sf_nsigma(trial[0], fit=False)
+        trial.append(pval)
+        trial.append(pval_nsigma)
+
+        # print result
+        msg = (
+            '    ts: {:5.2f} | ns: {:6.2f} | n-sigma: {:5.2f} '
+            '| cutoff: {:3.1f} TeV'
+        ).format(*trial[:2], pval_nsigma, cutoff)
+
+        if pval_nsigma < 3.:
+            result_msgs.append(msg)
+        elif pval_nsigma < 5.:
+            result_msgs.append(bcolors.YELLOW + msg + bcolors.ENDC)
         else:
-            out_dir = cy.utils.ensure_dir('{}/gp/results/{}/'.format(
-                state.base_dir, temp))
-            out_file = '{}/{}_unblinded.npy'.format(
-                out_dir, temp)
+            result_msgs.append(bcolors.GREEN + msg + bcolors.ENDC)
+
+        # append results of this source to overall trials
+        trials.append(trial)
+
+    print()
+    print('Pre-trial results for individual cutoffs:')
+    for msg in result_msgs:
+        print(msg)
+    print()
+
+    # --------------------
+    # Trial-correct cutoff
+    # --------------------
+    # get most significant cutoff
+    min_idx = np.argmin(np.array(trials)[:, 2])
+    min_cutoff = cutoffs[min_idx]
+    pval_min = trials[min_idx][2]
+    pval_min_nsigma = trials[min_idx][3]
+
+    # compute trial-corrected p-value
+    ts_mlog10p = -np.log10(pval_min)
+    pval = bg_corr.sf(ts_mlog10p, fit=False)
+    pval_nsigma = bg_corr.sf_nsigma(ts_mlog10p, fit=False)
+
+    # print results to console
+    print_result(
+        title='Results for Fermi Bubble Template',
+        n_trials=len(bgs[min_idx]),
+        trial=trials[min_idx],
+        pval=pval,
+        pval_nsigma=pval_nsigma,
+        add_items={
+            'most significant cutoff': '{:3.1f} TeV'.format(min_cutoff),
+            'pre-trial p-value': '{:3.3e}'.format(pval_min),
+            'pre-trial n-sigma': '{:3.2f}'.format(pval_min_nsigma),
+            'trial-factor': '{:3.2f}'.format(pval/pval_min),
+        },
+    )
+    flush()
+
+    if truth:
+        out_dir = cy.utils.ensure_dir('{}/gp/results/fermibubbles'.format(
+            state.base_dir))
+        out_file = '{}/fermibubbles_unblinded.npy'.format(out_dir)
         print ('-> {}'.format(out_file))
         np.save(out_file, trials)
 

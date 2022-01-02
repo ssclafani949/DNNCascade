@@ -1239,6 +1239,98 @@ def collect_correlated_trials_sourcelist(state):
         pickle.dump(trials, f, -1)
 
 
+@cli.command()
+@click.option(
+    '--n-trials', default=10000, type=int, help='Number of trials to run')
+@click.option('--cpus', default=1, type=int, help='ncpus')
+@click.option('--seed', default=None, type=int, help='Trial injection seed')
+@pass_state
+def do_correlated_trials_fermibubbles(
+        state, n_trials, cpus, seed,  logging=True):
+    """Correlated trials for Fermibubbles
+
+    Use MTR for correlated background trials evaluating for each cutoff
+    """
+    cutoffs = [50, 100, 500]
+    if seed is None:
+        seed = int(time.time() % 2**32)
+
+    t0 = now()
+    ana = state.ana
+    print('Loading Backgrounds')
+    fermi_dir = '{}/gp/trials/{}/fermibubbles'.format(
+        state.base_dir, state.ana_name)
+    trials = np.load('{}/trials.dict'.format(fermi_dir), allow_pickle=True)
+
+    # collect list of background trials for each cutoff
+    bgs = [
+        cy.dists.TSD(trials['poisson']['cutoff'][cutoff]['nsig'][0.0])
+        for cutoff in cutoffs
+    ]
+
+    def get_tr(temp, cutoff):
+        cutoff_GeV = cutoff * 1e3
+        gp_conf = cg.get_gp_conf(
+            template_str=temp, cutoff_GeV=cutoff_GeV, base_dir=state.base_dir)
+        tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
+        return tr
+
+    print('Getting trial runners')
+    trs = [get_tr('fermibubbles', cutoff) for cutoff in cutoffs]
+    assert len(trs) == len(bgs)
+
+    tr_inj = trs[0]
+    multr = cy.trial.MultiTrialRunner(
+        ana,
+        # bg+sig injection trial runner (produces trials)
+        tr_inj,
+        # llh test trial runners (perform fits given trials)
+        trs,
+        # background distributions
+        bgs=bgs,
+        # use multiprocessing
+        mp_cpus=cpus,
+    )
+    trials = multr.get_many_fits(n_trials)
+    t1 = now()
+    flush()
+    out_dir = cy.utils.ensure_dir('{}/correlated_trials/correlated_bg'.format(
+        fermi_dir))
+    out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format(
+        out_dir, n_trials, seed)
+    print ('-> {}'.format(out_file))
+    np.save(out_file, trials.as_array)
+
+
+@cli.command()
+@pass_state
+def collect_correlated_trials_fermibubbles(state):
+    """
+    Collect all the correlated MultiTrialRunner background trials from the
+    do-correlated-trials-fermibubbles into one list. These will be used to
+    trial-correct the p-value of the most significant Fermibubble
+    energy cutoff.
+    """
+    base_dir = '{}/gp/trials/{}/fermibubbles/correlated_trials'.format(
+        state.base_dir, state.ana_name)
+    trials = cy.bk.get_all(
+        base_dir + '/correlated_bg/', 'correlated_trials_*.npy',
+        merge=np.concatenate,
+        post_convert=(lambda x: cy.utils.Arrays(x)),
+    )
+
+    # find and add most significant cutoff
+    # shape: [n_trials, n_cutoffs]
+    mlog10ps = np.stack([
+        trials[k] for k in trials.keys() if k[:8] == 'mlog10p_'], axis=1)
+
+    trials['ts'] = np.max(mlog10ps, axis=1)
+    trials['idx_hottest'] = np.argmax(mlog10ps, axis=1)
+
+    with open('{}/correlated_bg.npy'.format(base_dir), 'wb') as f:
+        pickle.dump(trials, f, -1)
+
+
 if __name__ == '__main__':
     exe_t0 = now ()
     print ('start at {} .'.format (exe_t0))
