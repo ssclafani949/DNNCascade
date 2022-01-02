@@ -190,7 +190,7 @@ def unblind_sourcelist(
 
         # print result
         msg = '#{:03d} | ts: {:5.2f} | ns: {:6.2f} | gamma: {:4.2f}'
-        msg += ' | n-sigma: {:5.2f} | n-trials: {7d} | {}'
+        msg += ' | n-sigma: {:5.2f} | n-trials: {:7d} | {}'
         msg = msg.format(i, *trial[:3], pval_nsigma, len(bg), source[0])
 
         if pval_nsigma < 3.:
