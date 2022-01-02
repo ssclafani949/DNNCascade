@@ -255,6 +255,7 @@ def unblind_gp(
     """
     Unblind a particular galactic plane templaet
     """
+    temp = temp.lower()
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)

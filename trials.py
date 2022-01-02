@@ -403,6 +403,7 @@ def do_gp_trials (
     Do trials for galactic plane templates including Fermi bubbles
     and save output in a structured directory based on parameters
     """
+    temp = temp.lower()
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
@@ -463,6 +464,7 @@ def do_gp_sens (
     Calculate for galactic plane templates including fermi bubbles
     Recommend to use do_gp_trials for analysis level mass trial calculation
     """
+    temp = temp.lower()
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
@@ -559,6 +561,7 @@ def do_gp_sens_erange (
     Same as do_gp_sens with an option to set the emin and emax, 
     Usefull if you want to calculate the relavant 90% enegy range by varying these paramaters
     """
+    temp = temp.lower()
     if seed is None:
         seed = int (time.time () % 2**32)
     random = cy.utils.get_random (seed) 
@@ -770,6 +773,7 @@ def do_stacking_trials (
     """
     Do trials from a stacking catalog
     """
+    catalog = catalog.lower()
     print('Catalog: {}'.format(catalog))
     if seed is None:
         seed = int (time.time () % 2**32)
@@ -826,6 +830,7 @@ def do_stacking_sens (
     analysis level numbers of trials
     """
 
+    catalog = catalog.lower()
     print('Catalog: {}'.format(catalog))
     if seed is None:
         seed = int (time.time () % 2**32)
