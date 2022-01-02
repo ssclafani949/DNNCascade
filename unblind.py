@@ -241,24 +241,24 @@ def unblind_sourcelist(
 
 
 @cli.command()
-@click.argument('temp')
+@click.argument('template')
 @click.option('--seed', default=None, type=int)
 @click.option('--cpus', default=1, type=int)
 @click.option('--TRUTH', default=None, type=bool,
               help='Must be Set to TRUE to unblind')
 @pass_state
-def unblind_gp(state, temp, seed, cpus, truth, logging=True):
+def unblind_gp(state, template, seed, cpus, truth, logging=True):
     """Unblind galactic plane templates kra5, kra50, pi0
     """
 
     # check if valid template name was passed
-    temp = temp.lower()
-    if temp not in ['kra5', 'kra50', 'pi0']:
-        if temp == 'fermibubbles':
+    template = template.lower()
+    if template not in ['kra5', 'kra50', 'pi0']:
+        if template == 'fermibubbles':
             msg = 'To unblind Fermi bubbles use: `unblind-fermibubbles`'
             raise ValueError(msg)
         else:
-            raise ValueError('Unknown template: {}!'.format(temp))
+            raise ValueError('Unknown template: {}!'.format(template))
 
     if seed is None:
         seed = int(time.time() % 2**32)
@@ -272,7 +272,7 @@ def unblind_gp(state, temp, seed, cpus, truth, logging=True):
         tr = cy.get_trial_runner(gp_conf, ana=ana, mp_cpus=cpus)
         return tr
 
-    tr = get_tr(temp, TRUTH=truth)
+    tr = get_tr(template, TRUTH=truth)
     t0 = now()
     if truth:
         print('UNBLINDING!!!')
@@ -280,7 +280,7 @@ def unblind_gp(state, temp, seed, cpus, truth, logging=True):
     # get background trials
     print('Loading BKG TRIALS')
     base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(
-        state.ana_name, temp)
+        state.ana_name, template)
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
     bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
@@ -293,16 +293,16 @@ def unblind_gp(state, temp, seed, cpus, truth, logging=True):
 
     # print results to console
     print_result(
-        title='Results for GP template: {}'.format(temp),
+        title='Results for GP template: {}'.format(template),
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
     )
     flush()
 
     if truth:
         out_dir = cy.utils.ensure_dir('{}/gp/results/{}'.format(
-            state.base_dir, temp))
+            state.base_dir, template))
         out_file = '{}/{}_unblinded.npy'.format(
-            out_dir, temp)
+            out_dir, template)
         print ('-> {}'.format(out_file))
         np.save(out_file, trials)
 
