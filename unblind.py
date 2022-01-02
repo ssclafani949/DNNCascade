@@ -190,8 +190,8 @@ def unblind_sourcelist(
 
         # print result
         msg = '#{:03d} | ts: {:5.2f} | ns: {:6.2f} | gamma: {:4.2f}'
-        msg += ' | n-sigma: {:5.2f} | {}'
-        msg = msg.format(i, *trial[:3], pval_nsigma, source[0])
+        msg += ' | n-sigma: {:5.2f} | n-trials: {7d} | {}'
+        msg = msg.format(i, *trial[:3], pval_nsigma, len(bg), source[0])
 
         if pval_nsigma < 3.:
             print(msg)
@@ -217,7 +217,7 @@ def unblind_sourcelist(
     # print results to console
     print_result(
         title='Results for source list',
-        n_trials=len(bgs[min_idx]),
+        n_trials=len(bg_corr),
         trial=trials[min_idx],
         pval=pval,
         pval_nsigma=pval_nsigma,
@@ -421,7 +421,7 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     # print results to console
     print_result(
         title='Results for Fermi Bubble Template',
-        n_trials=len(bgs[min_idx]),
+        n_trials=len(bg_corr),
         trial=trials[min_idx],
         pval=pval,
         pval_nsigma=pval_nsigma,
