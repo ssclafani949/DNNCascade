@@ -97,10 +97,8 @@ def do_ps_sens (
         def get_tr(sindec, gamma, cpus):
             src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
             cutoff_GeV = cutoff * 1e3
-            conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
-
-            # overwrite sigsub setting
-            conf['sigsub'] = sigsub
+            conf = cg.get_ps_conf(
+                src=src, gamma=gamma, cutoff_GeV=cutoff_GeV, sigsub=sigsub)
 
             tr = cy.get_trial_runner(ana=ana, conf=conf, mp_cpus=cpus)
             return tr, src
@@ -188,11 +186,12 @@ def do_ps_trials (
 
     def get_tr(sindec, gamma, cpus):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
-        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=cutoff_GeV)
+        conf = cg.get_ps_conf(
+            src=src, gamma=gamma, cutoff_GeV=cutoff_GeV, sigsub=sigsub)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus)
         return tr, src
 
-    tr , src = get_tr(sindec, gamma, cpus)
+    tr, src = get_tr(sindec, gamma=gamma, cpus=cpus, sigsub=sigsub)
     print ('Beginning trials at {} ...'.format (t0))
     flush ()
     trials = tr.get_many_fits (

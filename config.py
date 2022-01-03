@@ -3,6 +3,7 @@ import socket
 import numpy as np
 import csky as cy
 import getpass
+import utils
 
 
 hostname = socket.gethostname()
@@ -33,7 +34,7 @@ else:
 # Define csky config settings for trial runners
 # ---------------------------------------------
 
-def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
+def get_ps_conf(src, gamma, cutoff_GeV=np.inf, sigsub=True):
     """Get csky trial runner config for Point Source Likelihood
 
     Parameters
@@ -50,11 +51,18 @@ def get_ps_conf(src, gamma, cutoff_GeV=np.inf):
     dict
         The config, which may be passed to csky.get_trial_runner
     """
+    if sigsub is False:
+        print(utils.bcolors.YELLOW)
+        print('=========================================================')
+        print('=== Warning: trial runner is using no sigsub!         ===')
+        print('=========================================================')
+        print(utils.bcolors.ENDC)
+
     conf = {
         'src': src,
         'flux': cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV),
         'update_bg': True,
-        'sigsub':  True,
+        'sigsub':  sigsub,
         'randomize': ['ra', cy.inj.DecRandomizer],
         'sindec_bandwidth': np.radians(5),
         'dec_rand_method': 'gaussian_fixed',
@@ -101,11 +109,11 @@ def get_gp_conf(
     # Setting it to custom values should only be done for debugging/testing
     # purposes and the user should be aware of this.
     if gamma is not None:
-        print()
+        print(utils.bcolors.YELLOW)
         print('=========================================================')
         print('=== Warning: trial runner is using non-default gamma! ===')
         print('=========================================================')
-        print()
+        print(utils.bcolors.ENDC)
 
     if template_str == 'pi0':
 
