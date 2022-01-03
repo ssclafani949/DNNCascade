@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import healpy as hp
 from matplotlib import pyplot as plt
@@ -54,7 +55,7 @@ def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
     print()
 
 
-def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5):
+def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5, figsize=(9, 6)):
     """Plot a skymap of the TS value
 
     Parameters
@@ -63,9 +64,21 @@ def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5):
         The skyscanner scan result.
     outfile : str, optional
         The output file path to which to plot if provided.
+    vmin : float, optional
+        The minimum value for the colorbar.
+    vmax : float, optional
+        The maximum value for the colorbar.
+    figsize : tuple, optional
+        The figure size to use.
+
+    Returns
+    -------
+    fig, ax
+        The matplotlib figure and axis.
     """
     # plot TS skymap
-    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    fig, ax = plt.subplots(
+        subplot_kw=dict(projection='aitoff'), figsize=figsize)
     sp = cy.plotting.SkyPlotter(
         pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
     mesh, cb = sp.plot_map(ax, scan[0], n_ticks=2)
@@ -81,7 +94,7 @@ def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5):
     return fig, ax
 
 
-def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10):
+def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10, figsize=(9, 6)):
     """Plot a skymap of the TS value
 
     Parameters
@@ -90,9 +103,21 @@ def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10):
         The skyscanner scan result.
     outfile : str, optional
         The output file path to which to plot if provided.
+    vmin : float, optional
+        The minimum value for the colorbar.
+    vmax : float, optional
+        The maximum value for the colorbar.
+    figsize : tuple, optional
+        The figure size to use.
+
+    Returns
+    -------
+    fig, ax
+        The matplotlib figure and axis.
     """
     # plot TS skymap
-    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    fig, ax = plt.subplots(
+        subplot_kw=dict(projection='aitoff'), figsize=figsize)
     sp = cy.plotting.SkyPlotter(
         pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
     mesh, cb = sp.plot_map(ax, scan[1], n_ticks=2)
@@ -108,7 +133,7 @@ def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10):
     return fig, ax
 
 
-def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100):
+def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100, figsize=(9, 6)):
     """Plot a skymap of the ns value
 
     Parameters
@@ -117,9 +142,21 @@ def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100):
         The skyscanner scan result.
     outfile : str, optional
         The output file path to which to plot if provided.
+    vmin : float, optional
+        The minimum value for the colorbar.
+    vmax : float, optional
+        The maximum value for the colorbar.
+    figsize : tuple, optional
+        The figure size to use.
+
+    Returns
+    -------
+    fig, ax
+        The matplotlib figure and axis.
     """
     # plot TS skymap
-    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    fig, ax = plt.subplots(
+        subplot_kw=dict(projection='aitoff'), figsize=figsize)
     sp = cy.plotting.SkyPlotter(
         pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
     mesh, cb = sp.plot_map(ax, scan[2], n_ticks=2)
@@ -135,7 +172,7 @@ def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100):
     return fig, ax
 
 
-def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4):
+def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4, figsize=(9, 6)):
     """Plot a skymap of the gamma value
 
     Parameters
@@ -144,9 +181,21 @@ def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4):
         The skyscanner scan result.
     outfile : str, optional
         The output file path to which to plot if provided.
+    vmin : float, optional
+        The minimum value for the colorbar.
+    vmax : float, optional
+        The maximum value for the colorbar.
+    figsize : tuple, optional
+        The figure size to use.
+
+    Returns
+    -------
+    fig, ax
+        The matplotlib figure and axis.
     """
     # plot TS skymap
-    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    fig, ax = plt.subplots(
+        subplot_kw=dict(projection='aitoff'), figsize=figsize)
     sp = cy.plotting.SkyPlotter(
         pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
     mesh, cb = sp.plot_map(ax, scan[3], n_ticks=2)
@@ -163,7 +212,7 @@ def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4):
 
 
 def plot_ss_trial(
-            scan, outdir,
+            scan, outdir, figsize=(9, 6),
             kwargs_pvalue={}, kwargs_ts={}, kwargs_ns={}, kwargs_gamma={},
         ):
     """Plot a skymap of the gamma value
@@ -179,7 +228,7 @@ def plot_ss_trial(
         pvalue, gamma, ns, ts.
     """
 
-    file = os.path.join(outdir, 'skyscan_{}_map.pdf')
+    file = os.path.join(outdir, 'skyscan_{}_map.png')
 
     plot_skymap_p_value(scan, outfile=file.format('pvalue'), **kwargs_pvalue)
     plot_skymap_ts(scan, outfile=file.format('ts'), **kwargs_ts)
