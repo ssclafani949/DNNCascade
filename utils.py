@@ -3,6 +3,56 @@ import healpy as hp
 import csky as cy
 
 
+class bcolors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+
+
+def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
+    """Print unblinding results to console
+
+    Parameters
+    ----------
+    title : str
+        The name of the analysis result. Will be displayed as title
+        of result box.
+    n_trials : int
+        The number of background trials on which the p-values are based on.
+    trial : tuple
+        The trial result.
+    pval : float
+        The p-value for the given trial.
+    pval_nsigma : float
+        The p-value in terms of n-sigma for the given trial.
+    add_items : dict, optional
+        Additional items to print.
+    """
+    print()
+    print('============================================')
+    print('=== {}'.format(title))
+    print('============================================')
+    print('    Number of Background Trials: {}'.format(n_trials))
+    print('    TS: {:3.3f}'.format(trial[0]))
+    print('    ns: {:3.3f}'.format(trial[1]))
+    for key, value in add_items.items():
+        print('    {}: {}'.format(key, value))
+    print('    p-value: {:3.3e}'.format(pval))
+    print('    n-sigma: {:3.2f}'.format(pval_nsigma))
+
+    if pval_nsigma < 3.:
+        msg = bcolors.RED + '    --> No significant discovery!'
+    elif pval_nsigma < 5.:
+        msg = bcolors.YELLOW + '    --> Found evidence for a source!'
+    else:
+        msg = bcolors.GREEN + '    --> Found a source!'
+    msg += bcolors.ENDC
+    print(msg)
+    print('============================================')
+    print()
+
+
 def get_mask_north_dict(nside_list):
     """Get a mask for healpix pixels belonging to the northern hemisphere
 
