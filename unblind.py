@@ -15,7 +15,8 @@ import os
 import time
 
 import config as cg
-from utils import bcolors, print_result, get_mask_north_dict
+import utils
+
 
 now = datetime.datetime.now
 flush = sys.stdout.flush
@@ -149,9 +150,9 @@ def unblind_sourcelist(
         if pval_nsigma < 3.:
             print(msg)
         elif pval_nsigma < 5.:
-            print(bcolors.YELLOW + msg + bcolors.ENDC)
+            print(utils.bcolors.YELLOW + msg + utils.bcolors.ENDC)
         else:
-            print(bcolors.GREEN + msg + bcolors.ENDC)
+            print(utils.bcolors.GREEN + msg + utils.bcolors.ENDC)
 
         # append results of this source to overall trials
         trials.append(trial)
@@ -168,7 +169,7 @@ def unblind_sourcelist(
     pval_nsigma = bg_corr.sf_nsigma(ts_mlog10p, fit=False)
 
     # print results to console
-    print_result(
+    utils.print_result(
         title='Results for source list',
         n_trials=len(bg_corr),
         trial=trials[min_idx],
@@ -245,7 +246,7 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
     trial.append(pval_nsigma)
 
     # print results to console
-    print_result(
+    utils.print_result(
         title='Results for GP template: {}'.format(template),
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
     )
@@ -344,9 +345,9 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
         if pval_nsigma < 3.:
             result_msgs.append(msg)
         elif pval_nsigma < 5.:
-            result_msgs.append(bcolors.YELLOW + msg + bcolors.ENDC)
+            result_msgs.append(utils.bcolors.YELLOW + msg + utils.bcolors.ENDC)
         else:
-            result_msgs.append(bcolors.GREEN + msg + bcolors.ENDC)
+            result_msgs.append(utils.bcolors.GREEN + msg + utils.bcolors.ENDC)
 
         # append results of this source to overall trials
         trials.append(trial)
@@ -372,7 +373,7 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     pval_nsigma = bg_corr.sf_nsigma(ts_mlog10p, fit=False)
 
     # print results to console
-    print_result(
+    utils.print_result(
         title='Results for Fermi Bubble Template',
         n_trials=len(bg_corr),
         trial=trials[min_idx],
@@ -437,7 +438,7 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         trial.append(pval_nsigma)
 
         # print results to console
-        print_result(
+        utils.print_result(
             title='Results for stacking catalog: {}'.format(catalog),
             n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
         )
@@ -519,7 +520,7 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     # with [-log10(p), ts, ns, gamma] along first axis
     mlog10ps_sky = ss_trial[0]
 
-    mask_north = get_mask_north_dict([nside])[nside]
+    mask_north = utils.get_mask_north_dict([nside])[nside]
 
     # get hottest pixels
     mlog10ps_north = np.array(mlog10ps_sky)
@@ -544,7 +545,7 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
         return np.pi/2. - theta, np.pi*2. - phi
 
     # print out results
-    print_result(
+    utils.print_result(
         title='Results for northern sky',
         n_trials=len(bg_corr_north),
         trial=ss_trial[:, ipix_max_north],
@@ -555,12 +556,12 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
             'Location': 'Dec: {:3.2f}° | RA: {:3.2f}°'.format(
                 *np.rad2deg(ipix_to_dec_ra(ipix_max_north))),
             'pre-trial p-value': '{:3.3e}'.format(10**(-ts_mlog10ps_north)),
-            'trial-factor': '{:3.5f}'.format(
-                10**(-ts_mlog10ps_north)/pval_north),
+            'trial-factor': '{:3.2f}'.format(
+                pval_north/10**(-ts_mlog10ps_north)),
         },
     )
 
-    print_result(
+    utils.print_result(
         title='Results for southern sky',
         n_trials=len(bg_corr_south),
         trial=ss_trial[:, ipix_max_south],
@@ -571,8 +572,8 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
             'Location': 'Dec: {:3.2f}° | RA: {:3.2f}°'.format(
                 *np.rad2deg(ipix_to_dec_ra(ipix_max_south))),
             'pre-trial p-value': '{:3.3e}'.format(10**(-ts_mlog10ps_south)),
-            'trial-factor': '{:3.5f}'.format(
-                10**(-ts_mlog10ps_south)/pval_south),
+            'trial-factor': '{:3.2f}'.format(
+                pval_south/10**(-ts_mlog10ps_south)),
         },
     )
 
@@ -592,6 +593,9 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
             'pval_south_nsigma': pval_south_nsigma,
         }
         np.save(out_file, results)
+
+        # plot skymaps
+        utils.plot_ss_trial(ss_trial, outdir=out_dir)
 
 
 if __name__ == '__main__':

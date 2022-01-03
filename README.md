@@ -10,6 +10,7 @@ Requirements:
 * click (any version should work, but ran with version 7.1.2)
 * numpy (any version should work, but ran with version 1.18.5)
 * pandas (any version should work, but ran with version 1.1.1)
+* matplotlib
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv

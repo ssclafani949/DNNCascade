@@ -1,5 +1,6 @@
 import numpy as np
 import healpy as hp
+from matplotlib import pyplot as plt
 import csky as cy
 
 
@@ -51,6 +52,139 @@ def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
     print(msg)
     print('============================================')
     print()
+
+
+def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5):
+    """Plot a skymap of the TS value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    outfile : str, optional
+        The output file path to which to plot if provided.
+    """
+    # plot TS skymap
+    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    sp = cy.plotting.SkyPlotter(
+        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
+    mesh, cb = sp.plot_map(ax, scan[0], n_ticks=2)
+    kw = dict(color='.5', alpha=.5)
+    sp.plot_gp(ax, lw=.5, **kw)
+    sp.plot_gc(ax, **kw)
+    ax.grid(**kw)
+    cb.set_label(r'$\log_{10}(p_\mathrm{pre-trial})$')
+    fig.tight_layout()
+    if outfile is not None:
+        fig.savefig(outfile)
+
+    return fig, ax
+
+
+def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10):
+    """Plot a skymap of the TS value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    outfile : str, optional
+        The output file path to which to plot if provided.
+    """
+    # plot TS skymap
+    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    sp = cy.plotting.SkyPlotter(
+        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
+    mesh, cb = sp.plot_map(ax, scan[1], n_ticks=2)
+    kw = dict(color='.5', alpha=.5)
+    sp.plot_gp(ax, lw=.5, **kw)
+    sp.plot_gc(ax, **kw)
+    ax.grid(**kw)
+    cb.set_label(r'TS')
+    fig.tight_layout()
+    if outfile is not None:
+        fig.savefig(outfile)
+
+    return fig, ax
+
+
+def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100):
+    """Plot a skymap of the ns value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    outfile : str, optional
+        The output file path to which to plot if provided.
+    """
+    # plot TS skymap
+    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    sp = cy.plotting.SkyPlotter(
+        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
+    mesh, cb = sp.plot_map(ax, scan[2], n_ticks=2)
+    kw = dict(color='.5', alpha=.5)
+    sp.plot_gp(ax, lw=.5, **kw)
+    sp.plot_gc(ax, **kw)
+    ax.grid(**kw)
+    cb.set_label(r'ns')
+    fig.tight_layout()
+    if outfile is not None:
+        fig.savefig(outfile)
+
+    return fig, ax
+
+
+def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4):
+    """Plot a skymap of the gamma value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    outfile : str, optional
+        The output file path to which to plot if provided.
+    """
+    # plot TS skymap
+    fig, ax = plt.subplots(subplot_kw=dict(projection='aitoff'))
+    sp = cy.plotting.SkyPlotter(
+        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
+    mesh, cb = sp.plot_map(ax, scan[3], n_ticks=2)
+    kw = dict(color='.5', alpha=.5)
+    sp.plot_gp(ax, lw=.5, **kw)
+    sp.plot_gc(ax, **kw)
+    ax.grid(**kw)
+    cb.set_label(r'Gamma $\gamma$')
+    fig.tight_layout()
+    if outfile is not None:
+        fig.savefig(outfile)
+
+    return fig, ax
+
+
+def plot_ss_trial(
+            scan, outdir,
+            kwargs_pvalue={}, kwargs_ts={}, kwargs_ns={}, kwargs_gamma={},
+        ):
+    """Plot a skymap of the gamma value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    outdir : None, optional
+        The output directory to which to plot if provided.
+    kwargs_* : dict, optional
+        Keyword arguments passed on to plotting functions of
+        pvalue, gamma, ns, ts.
+    """
+
+    file = os.path.join(outdir, 'skyscan_{}_map.pdf')
+
+    plot_skymap_p_value(scan, outfile=file.format('pvalue'), **kwargs_pvalue)
+    plot_skymap_ts(scan, outfile=file.format('ts'), **kwargs_ts)
+    plot_skymap_ns(scan, outfile=file.format('ns'), **kwargs_ns)
+    plot_skymap_gamma(scan, outfile=file.format('gamma'), **kwargs_gamma)
 
 
 def get_mask_north_dict(nside_list):
