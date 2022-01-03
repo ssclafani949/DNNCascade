@@ -29,6 +29,12 @@ else:
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/{}/'.format(username) 
 
+# Path to submit config file. This needs to be a relative path to $HOME
+# Example content of this file:
+#    eval `/cvmfs/icecube.opensciencegrid.org/py2-v3.0.1/setup.sh`
+#    source  ~/path/to/venv/bin/activate
+submit_cfg_file = 'DNNCascade/submitter_config'
+
 
 # ---------------------------------------------
 # Define csky config settings for trial runners

@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+try:
+    import matplotlib
+except ModuleNotFoundError:
+    os.environ['MPLBACKEND'] = 'AGG'
+    import matplotlib
 
 import csky as cy
 import numpy as np
@@ -12,6 +17,8 @@ flush = sys.stdout.flush
 repo, ana_dir, base_dir, job_basedir = cg.repo, cg.ana_dir, cg.base_dir, cg.job_basedir
 hostname = cg.hostname
 username = cg.username
+submit_cfg_file = cg.submit_cfg_file
+
 
 class State (object):
     def __init__ (self, ana_name, ana_dir, save,  base_dir,  job_basedir):
@@ -72,7 +79,7 @@ def submit_do_ps_trials (
     job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     #reqs = '(Machine != "cobol97.private.pa.umd.edu") & (Machine != "cobol94.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
@@ -115,7 +122,7 @@ def submit_do_ps_sens (
     job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -160,7 +167,7 @@ def submit_do_correlated_trials_sourcelist(
         job_basedir, ana_name,  T)
     sub = Submitter(
         job_dir=job_dir, memory=5,
-        max_jobs=1000, config='DNNCascade/submitter_config')
+        max_jobs=1000, config=submit_cfg_file)
 
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
@@ -194,7 +201,7 @@ def submit_do_correlated_trials_fermibubbles(
         job_basedir, ana_name,  T)
     sub = Submitter(
         job_dir=job_dir, memory=5,
-        max_jobs=1000, config='DNNCascade/submitter_config')
+        max_jobs=1000, config=submit_cfg_file)
 
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
@@ -229,7 +236,7 @@ def submit_do_bkg_trials_sourcelist (
     job_dir = '{}/{}/correlated_trials_sourcelist_bkg/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('unblind.py')
@@ -283,7 +290,7 @@ def submit_do_gp_trials (
     job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
         job_basedir, ana_name, temp, T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     reqs = '(Machine != "cobol93.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
@@ -326,7 +333,7 @@ def submit_gp_sens (
     job_dir = '{}/{}/ECAS_gp/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
@@ -373,7 +380,7 @@ def submit_gp_erange (
 
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
@@ -433,7 +440,7 @@ def submit_do_stacking_trials (
     job_dir = '{}/{}/stacking_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     if catalog:
@@ -493,7 +500,7 @@ def submit_do_sky_scan_trials (
     job_dir = '{}/{}/skyscan_trials/T_E{}_n_sig_{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100), n_sig,  T)
     sub = Submitter (job_dir=job_dir, memory=7, ncpu=cpus, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
+        max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
     for i in range (n_jobs):
