@@ -144,43 +144,74 @@ def submit_do_ps_sens (
     else:
         sub.submit_npx4 (commands, labels)
 
-@cli.command ()
-@click.option ('--n-trials', default=100, type=int)
-@click.option ('--n-jobs', default=10, type=int)
-@click.option ('--gamma', default=2, type=float)
-@click.option ('--dry/--nodry', default=False)
-@click.option ('--seed', default=0)
-@pass_state                                                                                                               
-def submit_do_mtr_trials (
-        state, n_trials, n_jobs,  gamma,  dry, seed):
+
+@cli.command()
+@click.option('--n-trials', default=100, type=int)
+@click.option('--n-jobs', default=10, type=int)
+@click.option('--dry/--nodry', default=False)
+@click.option('--seed', default=0)
+@pass_state
+def submit_do_correlated_trials_sourcelist(
+        state, n_trials, n_jobs,  dry, seed):
     ana_name = state.ana_name
-    T = time.time ()
-    job_basedir = state.job_basedir 
-    job_dir = '{}/{}/mtr_bkg/T_{:17.6f}'.format (
+    T = time.time()
+    job_basedir = state.job_basedir
+    job_dir = '{}/{}/correlated_trials_sourcelist/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
-        max_jobs=1000, config = 'DNNCascade/submitter_config')
-    #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
+    sub = Submitter(
+        job_dir=job_dir, memory=5,
+        max_jobs=1000, config='DNNCascade/submitter_config')
+
     commands, labels = [], []
-    this_script = os.path.abspath (__file__)
-    trial_script = os.path.abspath('mtr.py')
-    for i in range (n_jobs):
+    trial_script = os.path.abspath('trials.py')
+    for i in range(n_jobs):
         s = i + seed
-        fmt = '{} do-correlated-trials-sourcelist  --ntrials {}' \
-                            ' --seed={}'
-        command = fmt.format ( trial_script,  n_trials, s)
-        fmt = 'csky_sens_{:07d}_' \
-                'seed_{:04d}'
-        label = fmt.format (
-                n_trials, 
-                s)
-        commands.append (command)
-        labels.append (label)
+        fmt = '{} do-correlated-trials-sourcelist --ntrials {} --seed={}'
+        command = fmt.format(trial_script,  n_trials, s)
+        fmt = 'csky_correlated_trials_sourcelist_{:07d}_seed_{:04d}'
+        label = fmt.format(n_trials, s)
+        commands.append(command)
+        labels.append(label)
     sub.dry = dry
     if 'condor00' in hostname:
-        sub.submit_condor00 (commands, labels)
+        sub.submit_condor00(commands, labels)
     else:
-        sub.submit_npx4 (commands, labels)
+        sub.submit_npx4(commands, labels)
+
+
+@cli.command()
+@click.option('--n-trials', default=100, type=int)
+@click.option('--n-jobs', default=10, type=int)
+@click.option('--dry/--nodry', default=False)
+@click.option('--seed', default=0)
+@pass_state
+def submit_do_correlated_trials_fermibubblest(
+        state, n_trials, n_jobs,  dry, seed):
+    ana_name = state.ana_name
+    T = time.time()
+    job_basedir = state.job_basedir
+    job_dir = '{}/{}/correlated_trials_fermibubbles/T_{:17.6f}'.format(
+        job_basedir, ana_name,  T)
+    sub = Submitter(
+        job_dir=job_dir, memory=5,
+        max_jobs=1000, config='DNNCascade/submitter_config')
+
+    commands, labels = [], []
+    trial_script = os.path.abspath('trials.py')
+    for i in range(n_jobs):
+        s = i + seed
+        fmt = '{} do-correlated-trials-fermibubbles --ntrials {} --seed={}'
+        command = fmt.format(trial_script,  n_trials, s)
+        fmt = 'csky_correlated_trials_fermibubbles_{:07d}_seed_{:04d}'
+        label = fmt.format(n_trials, s)
+        commands.append(command)
+        labels.append(label)
+    sub.dry = dry
+    if 'condor00' in hostname:
+        sub.submit_condor00(commands, labels)
+    else:
+        sub.submit_npx4(commands, labels)
+
 
 @cli.command ()
 @click.option ('--n-jobs', default=10, type=int)
@@ -195,7 +226,7 @@ def submit_do_bkg_trials_sourcelist (
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir 
-    job_dir = '{}/{}/mtr_bkg/T_{:17.6f}'.format (
+    job_dir = '{}/{}/correlated_trials_sourcelist_bkg/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=5, 
         max_jobs=1000, config = 'DNNCascade/submitter_config')
@@ -442,13 +473,22 @@ def submit_do_stacking_trials (
 @click.option ('--dec', 'dec_deg',  type=float, default= 0 )
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option('--nside', default=128, type=int)
+@click.option('--poisson/--nopoisson', default=True,
+              help='toggle possion weighted signal injection')
+@click.option('--fit/--nofit', default=False,
+              help='Use Chi2 Fit or not for the bg trials at each declination')
 @pass_state
 def submit_do_sky_scan_trials (
-        state,  n_jobs, cpus, n_sig, gamma, 
+        state,  n_jobs, cpus, n_sig, gamma, nside, poisson, fit,
          dec_deg, dry, 
         seed):
     ana_name = state.ana_name
     T = time.time ()
+
+    poisson_str = 'poisson' if poisson else 'nopoisson'
+    fit_str = 'fit' if fit else 'nofit'
+
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/skyscan_trials/T_E{}_n_sig_{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100), n_sig,  T)
@@ -458,11 +498,16 @@ def submit_do_sky_scan_trials (
     trial_script = os.path.abspath('trials.py')
     for i in range (n_jobs):
         s = i + seed
-        fmt = ' {} do-sky-scan-trials --dec_deg={:+08.3f}' \
-                ' --n-sig={} --gamma={:.3f}' \
-                ' --seed={} --cpus={}'
-        command = fmt.format (trial_script,  dec_deg,
-                              n_sig, gamma, s, cpus)
+        fmt = (
+            ' {} do-sky-scan-trials --dec_deg={:+08.3f}'
+            ' --n-sig={} --gamma={:.3f} --seed={} --cpus={}'
+            '--nside={} --{} --{}'
+        )
+        command = fmt.format(
+            trial_script,  dec_deg,
+            n_sig, gamma, s, cpus,
+            nside, poisson_str, fit_str,
+        )
 
         fmt = 'csky__scan_dec_{:+08.3f}___n_sig_{:08.3f}__' \
                 'gamma_{:.3f}_seed_{:04d}'
