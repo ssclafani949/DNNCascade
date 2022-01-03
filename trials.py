@@ -3,6 +3,7 @@
 import csky as cy
 import numpy as np
 import pandas as pd
+import glob
 import healpy as hp
 import pickle, datetime, socket
 import histlite as hl
@@ -10,6 +11,7 @@ now = datetime.datetime.now
 import matplotlib.pyplot as plt
 import click, sys, os, time
 import config as cg
+import utils
 flush = sys.stdout.flush
 hp.disable_warnings()
 
@@ -1029,33 +1031,45 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
                 np.save(base_dir + '/stacking_{}_sens_flux_E{}.npy'.format(cat, int(gamma * 100)), fluxs)
 
 
-@cli.command ()
-@click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
-@click.option ('-n', '--n-sig', default=0, type=float, help = 'Number of signal events to inject')
+@cli.command()
+@click.option('--dec_deg',   default=0, type=float, help='Declination in deg')
+@click.option('-n', '--n-sig', default=0, type=float,
+              help='Number of signal events to inject')
 @click.option('--nside', default=128, type=int)
 @click.option('--cpus', default=1, type=int)
-@click.option('--seed', default=None, type = int)
-@click.option ('--poisson/--nopoisson', default=True, 
-    help = 'toggle possion weighted signal injection')
-@click.option('--gamma', default = 2.0, type = float)
+@click.option('--seed', default=None, type=int)
+@click.option('--poisson/--nopoisson', default=True,
+              help='toggle possion weighted signal injection')
+@click.option('--gamma', default=2.0, type=float,
+              help='Gamma for signal injection.')
+@click.option('--fit/--nofit', default=False,
+              help='Use Chi2 Fit or not for the bg trials at each declination')
 @pass_state
-def do_sky_scan_trials(state, poisson,
-                    dec_deg, nside, n_sig, cpus, seed, gamma):
+def do_sky_scan_trials(
+        state, poisson, dec_deg, nside, n_sig, cpus, seed, gamma, fit):
     """
     Scan each point in the sky in a grid of pixels
     """
 
     if seed is None:
-        seed = int (time.time () % 2**32)
-    random = cy.utils.get_random (seed) 
+        seed = int(time.time() % 2**32)
+    random = cy.utils.get_random(seed)
     print('Seed: {}'.format(seed))
     dec = np.radians(dec_deg)
     sindec = np.sin(dec)
     base_dir = state.base_dir + '/ps/trials/DNNC'
-    bgfile = '{}/bg_chi2.dict'.format (base_dir)
-    bg = np.load (bgfile, allow_pickle=True)
-    ts_to_p = lambda dec, ts: cy.dists.ts_to_p (bg['dec'], np.degrees(dec), ts, fit=True)
-    t0 = now ()
+    if fit:
+        bgfile = '{}/bg_chi2.dict'.format(base_dir)
+        bgs = np.load(bgfile, allow_pickle=True)['dec']
+    else:
+        bgfile = '{}/bg.dict'.format(base_dir)
+        bg_trials = np.load(bgfile, allow_pickle=True)['dec']
+        bgs = {key: cy.dists.TSD(trials) for key, trials in bg_trials.items()}
+
+    def ts_to_p(dec, ts):
+        return cy.dists.ts_to_p(bgs, np.degrees(dec), ts, fit=fit)
+
+    t0 = now()
     ana = state.ana
     conf = cg.get_ps_conf(src=None, gamma=gamma)
     conf.pop('src')
@@ -1067,30 +1081,56 @@ def do_sky_scan_trials(state, poisson,
 
     inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
     inj_conf = {
-        'src' : inj_src,
-        'flux' : cy.hyp.PowerLawFlux(gamma),
-            }
-    
-    sstr = cy.get_sky_scan_trial_runner(conf=conf, inj_conf = inj_conf,
-                                        min_dec= np.radians(-80),
-                                        max_dec = np.radians(80),
-                                        mp_scan_cpus = cpus,
-                                        nside=nside, ts_to_p = ts_to_p)        
-    print('Doing one Scan with nsig =  {}'.format(n_sig)) 
-    trials = sstr.get_one_scan(n_sig, poisson= poisson, logging=True, seed=seed)
+        'src': inj_src,
+        'flux': cy.hyp.PowerLawFlux(gamma),
+    }
+
+    sstr = cy.get_sky_scan_trial_runner(conf=conf, inj_conf=inj_conf,
+                                        min_dec=np.radians(-80),
+                                        max_dec=np.radians(80),
+                                        mp_scan_cpus=cpus,
+                                        nside=nside, ts_to_p=ts_to_p)
+    print('Doing one Scan with nsig = {}'.format(n_sig))
+    trials = sstr.get_one_scan(n_sig, poisson=poisson, logging=True, seed=seed)
+
+    base_out = '{}/skyscan/trials/{}/nside/{:04d}'.format(
+        state.base_dir, state.ana_name, nside)
     if n_sig:
-        out_dir = cy.utils.ensure_dir (
-            '{}/skyscan/trials/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format (
-                state.base_dir, state.ana_name,
+        out_dir = cy.utils.ensure_dir(
+            '{}/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format(
+                base_out,
                 'poisson' if poisson else 'nonpoisson',
-                 gamma,  dec_deg, n_sig))
+                'fit' if fit else 'nofit',
+                gamma,  dec_deg, n_sig))
     else:
-        out_dir = cy.utils.ensure_dir ('{}/skyscan/trials/{}/bg/'.format (
-            state.base_dir, state.ana_name))
-    out_file = '{}/scan_seed_{:010d}.npy'.format (
-        out_dir,  seed)
-    print ('-> {}'.format (out_file))
-    np.save (out_file, trials)
+        out_dir = cy.utils.ensure_dir('{}/bg/{}'.format(
+            base_out, 'fit' if fit else 'nofit'))
+    out_file = '{}/scan_seed_{:010d}.npy'.format(out_dir,  seed)
+    print ('-> {}'.format(out_file))
+    np.save(out_file, trials)
+
+
+@cli.command()
+@pass_state
+def collect_sky_scan_trials_bg(state):
+    """
+    Collect hottest p-value from background sky scan trials
+    """
+
+    base_dir = '{}/skyscan/trials/{}/'.format(state.base_dir, state.ana_name)
+
+    # pre-calculate mask for northern pixels for given nside
+    nside_dirs = glob.glob(os.path.join(base_dir, 'nside', '*'))
+    nside_list = [int(os.path.basename(nside_dir)) for nside_dir in nside_dirs]
+    mask_north_dict = utils.get_mask_north_dict(nside_list=nside_list)
+
+    trials = cy.bk.get_all(
+        base_dir, 'scan_seed_*.npy',
+        pre_convert=utils.extract_hottest_p_value,
+    )
+
+    with open('{}sky_scan_bg.npy'.format(base_dir), 'wb') as f:
+        pickle.dump(trials, f, -1)
 
 
 @cli.command()

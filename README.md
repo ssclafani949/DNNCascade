@@ -177,5 +177,15 @@ In order to perform the trial correction for the most significant cutoff energy 
         
         # collect correlated background trials
         python trials.py collect-correlated-trials-fermibubbles
+        
+## Correlated trials for sky-scan
+
+In order to perform the trial correction for the most significant pixel in the sky, correlated trials are considered with csky's sky scan trial runner. The sky scan trial runner will use the ps trials for each declination that must have been computed and collected prior to runnight the sky-scan trial runner. 
+
+        # perform correlated trials
+        python trials.py do-sky-scan-trials --cpus <ncpus>
+        
+        # collect correlated background trials
+        python trials.py collect-sky-scan-trials-bg
 
 

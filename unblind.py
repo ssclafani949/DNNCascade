@@ -14,6 +14,7 @@ import sys
 import os
 import time
 import config as cg
+import utils
 now = datetime.datetime.now
 flush = sys.stdout.flush
 hp.disable_warnings()
@@ -516,14 +517,32 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
     print('Seed: {}'.format(seed))
+
+    # load uncorrelated bg trials at each declination
+    print('Loading bg trials at each declination...')
     base_dir = state.base_dir + '/ps/trials/DNNC'
     if fit:
         bgfile = '{}/bg_chi2.dict'.format(base_dir)
+        bgs = np.load(bgfile, allow_pickle=True)['dec']
     else:
         bgfile = '{}/bg.dict'.format(base_dir)
-    bg = np.load(bgfile, allow_pickle=True)
-    ts_to_p = lambda dec, ts: cy.dists.ts_to_p(bg['dec'], np.degrees(dec), ts, fit=fit)
+        bg_trials = np.load(bgfile, allow_pickle=True)['dec']
+        bgs = {key: cy.dists.TSD(trials) for key, trials in bg_trials.items()}
+
+    # load correlated sky scan trials for trial-correction
+    print('Loading correlated sky scan trials...')
+    trials_corr_file = state.base_dir + '/skyscan/trials/DNNC/sky_scan_bg.npy'
+    trials_corr_dict = np.load(trials_corr_file, allow_pickle=True)
+    fit_str = 'fit' if fit else 'nofit'
+    trials_corr = trials_corr_dict['nside'][nside]['bg'][fit_str]
+    bg_corr_north = cy.dists.TSD(trials_corr.mlog10p_north)
+    bg_corr_south = cy.dists.TSD(trials_corr.mlog10p_south)
+
+    def ts_to_p(dec, ts):
+        return cy.dists.ts_to_p(bgs, np.degrees(dec), ts, fit=fit)
+
     t0 = now()
+    print('Running sky scan...')
     ana = state.ana
     conf = cg.get_ps_conf(src=None, gamma=2.0)
     conf.pop('src')
@@ -539,14 +558,88 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
                                         nside=nside, ts_to_p=ts_to_p)
     if truth:
         print('UNBLINDING!!!!')
-    trials = sstr.get_one_scan(logging=True, seed=seed, TRUTH=truth)
+    ss_trial = sstr.get_one_scan(logging=True, seed=seed, TRUTH=truth)
+
+    # ------------------------
+    # compute trial correction
+    # ------------------------
+    # ss_trial shape: [4, npix]
+    # with [-log10(p), ts, ns, gamma] along first axis
+    mlog10ps_sky = ss_trial[0]
+
+    mask_north = utils.get_mask_north_dict([nside])[nside]
+
+    # get hottest pixels
+    mlog10ps_north = np.array(mlog10ps_sky.as_array)
+    mlog10ps_north[mask_north] = -np.inf
+    ipix_max_north = np.argmax(mlog10ps_north)
+
+    mlog10ps_south = np.array(mlog10ps_sky.as_array)
+    mlog10ps_south[~mask_north] = -np.inf
+    ipix_max_south = np.argmax(mlog10ps_south)
+
+    # compute trial-corrected p-values
+    ts_mlog10ps_north = mlog10ps_sky[ipix_max_north]
+    pval_north = bg_corr_north.sf(ts_mlog10ps_north, fit=False)
+    pval_north_nsigma = bg_corr_north.sf_nsigma(ts_mlog10ps_north, fit=False)
+
+    ts_mlog10ps_south = mlog10ps_sky[ipix_max_south]
+    pval_south = bg_corr_south.sf(ts_mlog10ps_south, fit=False)
+    pval_south_nsigma = bg_corr_south.sf_nsigma(ts_mlog10ps_south, fit=False)
+
+    def ipix_to_dec_ra(ipix):
+        theta, phi = hp.pixelfunc.pix2ang(nside, ipix)
+        return np.pi/2. - theta, np.pi*2. - phi
+
+    # print out results
+    print_result(
+        title='Results for northern sky',
+        n_trials=len(bg_corr_north),
+        trial=ss_trial[:, ipix_max_north],
+        pval=pval_north,
+        pval_nsigma=pval_north_nsigma,
+        add_items={
+            'Gamma': ss_trial[3, ipix_max_north],
+            'Location': 'Dec: {:3.2f}° | RA: {:3.2f}°'.format(
+                *np.rad2deg(ipix_to_dec_ra(ipix_max_north))),
+            'pre-trial p-value': '{:3.3e}'.format(10**(-ts_mlog10ps_north)),
+            'trial-factor': '{:3.5f}'.format(
+                10**(-ts_mlog10ps_north)/pval_north),
+        },
+    )
+
+    print_result(
+        title='Results for southern sky',
+        n_trials=len(bg_corr_south),
+        trial=ss_trial[:, ipix_max_south],
+        pval=pval_south,
+        pval_nsigma=pval_south_nsigma,
+        add_items={
+            'Gamma': ss_trial[3, ipix_max_south],
+            'Location': 'Dec: {:3.2f}° | RA: {:3.2f}°'.format(
+                *np.rad2deg(ipix_to_dec_ra(ipix_max_south))),
+            'pre-trial p-value': '{:3.3e}'.format(10**(-ts_mlog10ps_south)),
+            'trial-factor': '{:3.5f}'.format(
+                10**(-ts_mlog10ps_south)/pval_south),
+        },
+    )
+
     if truth:
         out_dir = cy.utils.ensure_dir('{}/skyscan/results/'.format(
             state.base_dir))
         out_file = '{}/unblinded_skyscan.npy'.format(
             out_dir,  seed)
         print ('-> {}'.format(out_file))
-        np.save(out_file, trials)
+        results = {
+            'ss_trial': ss_trial,
+            'ipix_max_north': ipix_max_north,
+            'ipix_max_south': ipix_max_south,
+            'pval_north': pval_north,
+            'pval_south': pval_south,
+            'pval_north_nsigma': pval_north_nsigma,
+            'pval_south_nsigma': pval_south_nsigma,
+        }
+        np.save(out_file, results)
 
 
 if __name__ == '__main__':
