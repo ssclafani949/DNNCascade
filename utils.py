@@ -178,7 +178,10 @@ def plot_skymap_gamma(scan, **kwargs):
 
 def plot_ss_trial(
             scan, outdir, figsize=(9, 6),
-            kwargs_pvalue={}, kwargs_ts={}, kwargs_ns={}, kwargs_gamma={},
+            kwargs_pvalue={'vmin': 0, 'vmax': 5},
+            kwargs_ts={'vmin': 0, 'vmax': None},
+            kwargs_ns={'vmin': 0, 'vmax': None},
+            kwargs_gamma={'vmin': 0., 'vmax': 4.},
         ):
     """Plot a skymap of the gamma value
 
