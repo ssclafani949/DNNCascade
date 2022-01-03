@@ -119,7 +119,7 @@ def plot_skymap_p_value(scan, **kwargs):
     )
 
 
-def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10, figsize=(9, 6)):
+def plot_skymap_ts(scan, **kwargs):
     """Plot a skymap of the TS value
 
     Parameters
@@ -135,12 +135,10 @@ def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10, figsize=(9, 6)):
         The matplotlib figure and axis.
 
     """
-    return plot_skymap(
-        skymap=scan[1], label=r'TS', **kwargs
-    )
+    return plot_skymap(skymap=scan[1], label=r'TS', **kwargs)
 
 
-def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100, figsize=(9, 6)):
+def plot_skymap_ns(scan, **kwargs):
     """Plot a skymap of the ns value
 
     Parameters
@@ -156,12 +154,10 @@ def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100, figsize=(9, 6)):
         The matplotlib figure and axis.
 
     """
-    return plot_skymap(
-        skymap=scan[2], label=r'ns', **kwargs
-    )
+    return plot_skymap(skymap=scan[2], label=r'ns', **kwargs)
 
 
-def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4, figsize=(9, 6)):
+def plot_skymap_gamma(scan, **kwargs):
     """Plot a skymap of the gamma value
 
     Parameters
@@ -177,9 +173,7 @@ def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4, figsize=(9, 6)):
         The matplotlib figure and axis.
 
     """
-    return plot_skymap(
-        skymap=scan[3], label=r'Gamma $\gamma$', **kwargs
-    )
+    return plot_skymap(skymap=scan[3], label=r'Gamma $\gamma$', **kwargs)
 
 
 def plot_ss_trial(
