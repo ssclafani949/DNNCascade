@@ -542,7 +542,7 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
 
     def ipix_to_dec_ra(ipix):
         theta, phi = hp.pixelfunc.pix2ang(nside, ipix)
-        return np.pi/2. - theta, np.pi*2. - phi
+        return np.pi/2. - theta, phi
 
     # print out results
     utils.print_result(
