@@ -10,7 +10,7 @@ Requirements:
 * click (any version should work, but ran with version 7.1.2)
 * numpy (any version should work, but ran with version 1.18.5)
 * pandas (any version should work, but ran with version 1.1.1)
-* matplotlib
+* matplotlib (any version should work, but ran with version 2.2.4)
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
@@ -25,7 +25,7 @@ trials.py
   This script has functions to run trials or compute sensitivity, for PS, Stacking and Templates, these can be done at the individiual trial level, using the `do-X-trials` functions, or computing a senstivity from scratch using `do-X-sens` .  The sens functions are useful for quick checks that do not require a lot of background trials.
   
 submit.py
-  This script maps to the functions in `trials.py` and controls the submission script writing for each function.  If you are using NPX or UMD cluster you can call these functions from `submit-1` on NPX and it will create the relavant dagman and submit this.  
+  This script maps to the functions in `trials.py` and controls the submission script writing for each function.  If you are using NPX or UMD cluster you can call these functions from `submit-1` on NPX and it will create the relavant dagman and submit this. 
   
 submitter_config
   This is a small config file that is run on each job that is submitted.  It currently loads cvmfs and then loads a virtual environment with relavant software

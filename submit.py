@@ -185,7 +185,7 @@ def submit_do_correlated_trials_sourcelist(
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
 @pass_state
-def submit_do_correlated_trials_fermibubblest(
+def submit_do_correlated_trials_fermibubbles(
         state, n_trials, n_jobs,  dry, seed):
     ana_name = state.ana_name
     T = time.time()
