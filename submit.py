@@ -173,7 +173,7 @@ def submit_do_correlated_trials_sourcelist(
     trial_script = os.path.abspath('trials.py')
     for i in range(n_jobs):
         s = i + seed
-        fmt = '{} do-correlated-trials-sourcelist --ntrials {} --seed={}'
+        fmt = '{} do-correlated-trials-sourcelist --n-trials {} --seed={}'
         command = fmt.format(trial_script,  n_trials, s)
         fmt = 'csky_correlated_trials_sourcelist_{:07d}_seed_{:04d}'
         label = fmt.format(n_trials, s)
@@ -207,7 +207,7 @@ def submit_do_correlated_trials_fermibubbles(
     trial_script = os.path.abspath('trials.py')
     for i in range(n_jobs):
         s = i + seed
-        fmt = '{} do-correlated-trials-fermibubbles --ntrials {} --seed={}'
+        fmt = '{} do-correlated-trials-fermibubbles --n-trials {} --seed={}'
         command = fmt.format(trial_script,  n_trials, s)
         fmt = 'csky_correlated_trials_fermibubbles_{:07d}_seed_{:04d}'
         label = fmt.format(n_trials, s)
@@ -250,7 +250,7 @@ def submit_do_bkg_trials_sourcelist (
     for source in sources:
         for i in range (n_jobs):
             s = i + seed
-            fmt = '{} do-bkg-trials-sourcelist  --ntrials {}' \
+            fmt = '{} do-bkg-trials-sourcelist  --n-trials {}' \
                                 ' --sourcenum {}' \
                                 ' --seed={}'
             command = fmt.format ( trial_script,  n_trials,
