@@ -55,13 +55,16 @@ def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
     print()
 
 
-def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5, figsize=(9, 6)):
-    """Plot a skymap of the TS value
+def plot_skymap(
+            skymap, outfile=None, figsize=(9, 6),
+            vmin=None, vmax=None, label=None,
+        ):
+    """Plot a skymap
 
     Parameters
     ----------
-    scan : array_like
-        The skyscanner scan result.
+    skymap : array_like
+        The skymap to plot.
     outfile : str, optional
         The output file path to which to plot if provided.
     vmin : float, optional
@@ -70,28 +73,50 @@ def plot_skymap_p_value(scan, outfile=None, vmin=0, vmax=5, figsize=(9, 6)):
         The maximum value for the colorbar.
     figsize : tuple, optional
         The figure size to use.
+    cbar_label : str, optional
+        The label for the colorbar.
 
     Returns
     -------
     fig, ax
         The matplotlib figure and axis.
     """
-    # plot TS skymap
     fig, ax = plt.subplots(
         subplot_kw=dict(projection='aitoff'), figsize=figsize)
     sp = cy.plotting.SkyPlotter(
         pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
-    mesh, cb = sp.plot_map(ax, scan[0], n_ticks=2)
+    mesh, cb = sp.plot_map(ax, skymap, n_ticks=2)
     kw = dict(color='.5', alpha=.5)
     sp.plot_gp(ax, lw=.5, **kw)
     sp.plot_gc(ax, **kw)
     ax.grid(**kw)
-    cb.set_label(r'$\log_{10}(p_\mathrm{pre-trial})$')
+    cb.set_label(cbar_label)
     fig.tight_layout()
     if outfile is not None:
         fig.savefig(outfile)
 
     return fig, ax
+
+
+def plot_skymap_p_value(scan, **kwargs):
+    """Plot a skymap of the TS value
+
+    Parameters
+    ----------
+    scan : array_like
+        The skyscanner scan result.
+    **kwargs
+        Additional keyword arguments passed on to `plot_skymap()`
+
+    Returns
+    -------
+    fig, ax
+        The matplotlib figure and axis.
+
+    """
+    return plot_skymap(
+        skymap=scan[0], label=r'$\log_{10}(p_\mathrm{pre-trial})$', **kwargs
+    )
 
 
 def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10, figsize=(9, 6)):
@@ -101,36 +126,18 @@ def plot_skymap_ts(scan, outfile=None, vmin=0, vmax=10, figsize=(9, 6)):
     ----------
     scan : array_like
         The skyscanner scan result.
-    outfile : str, optional
-        The output file path to which to plot if provided.
-    vmin : float, optional
-        The minimum value for the colorbar.
-    vmax : float, optional
-        The maximum value for the colorbar.
-    figsize : tuple, optional
-        The figure size to use.
+    **kwargs
+        Additional keyword arguments passed on to `plot_skymap()`
 
     Returns
     -------
     fig, ax
         The matplotlib figure and axis.
-    """
-    # plot TS skymap
-    fig, ax = plt.subplots(
-        subplot_kw=dict(projection='aitoff'), figsize=figsize)
-    sp = cy.plotting.SkyPlotter(
-        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
-    mesh, cb = sp.plot_map(ax, scan[1], n_ticks=2)
-    kw = dict(color='.5', alpha=.5)
-    sp.plot_gp(ax, lw=.5, **kw)
-    sp.plot_gc(ax, **kw)
-    ax.grid(**kw)
-    cb.set_label(r'TS')
-    fig.tight_layout()
-    if outfile is not None:
-        fig.savefig(outfile)
 
-    return fig, ax
+    """
+    return plot_skymap(
+        skymap=scan[1], label=r'TS', **kwargs
+    )
 
 
 def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100, figsize=(9, 6)):
@@ -140,36 +147,18 @@ def plot_skymap_ns(scan, outfile=None, vmin=0, vmax=100, figsize=(9, 6)):
     ----------
     scan : array_like
         The skyscanner scan result.
-    outfile : str, optional
-        The output file path to which to plot if provided.
-    vmin : float, optional
-        The minimum value for the colorbar.
-    vmax : float, optional
-        The maximum value for the colorbar.
-    figsize : tuple, optional
-        The figure size to use.
+    **kwargs
+        Additional keyword arguments passed on to `plot_skymap()`
 
     Returns
     -------
     fig, ax
         The matplotlib figure and axis.
-    """
-    # plot TS skymap
-    fig, ax = plt.subplots(
-        subplot_kw=dict(projection='aitoff'), figsize=figsize)
-    sp = cy.plotting.SkyPlotter(
-        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
-    mesh, cb = sp.plot_map(ax, scan[2], n_ticks=2)
-    kw = dict(color='.5', alpha=.5)
-    sp.plot_gp(ax, lw=.5, **kw)
-    sp.plot_gc(ax, **kw)
-    ax.grid(**kw)
-    cb.set_label(r'ns')
-    fig.tight_layout()
-    if outfile is not None:
-        fig.savefig(outfile)
 
-    return fig, ax
+    """
+    return plot_skymap(
+        skymap=scan[2], label=r'ns', **kwargs
+    )
 
 
 def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4, figsize=(9, 6)):
@@ -179,36 +168,18 @@ def plot_skymap_gamma(scan, outfile=None, vmin=0, vmax=4, figsize=(9, 6)):
     ----------
     scan : array_like
         The skyscanner scan result.
-    outfile : str, optional
-        The output file path to which to plot if provided.
-    vmin : float, optional
-        The minimum value for the colorbar.
-    vmax : float, optional
-        The maximum value for the colorbar.
-    figsize : tuple, optional
-        The figure size to use.
+    **kwargs
+        Additional keyword arguments passed on to `plot_skymap()`
 
     Returns
     -------
     fig, ax
         The matplotlib figure and axis.
-    """
-    # plot TS skymap
-    fig, ax = plt.subplots(
-        subplot_kw=dict(projection='aitoff'), figsize=figsize)
-    sp = cy.plotting.SkyPlotter(
-        pc_kw=dict(cmap=cy.plotting.skymap_cmap, vmin=vmin, vmax=vmax))
-    mesh, cb = sp.plot_map(ax, scan[3], n_ticks=2)
-    kw = dict(color='.5', alpha=.5)
-    sp.plot_gp(ax, lw=.5, **kw)
-    sp.plot_gc(ax, **kw)
-    ax.grid(**kw)
-    cb.set_label(r'Gamma $\gamma$')
-    fig.tight_layout()
-    if outfile is not None:
-        fig.savefig(outfile)
 
-    return fig, ax
+    """
+    return plot_skymap(
+        skymap=scan[3], label=r'Gamma $\gamma$', **kwargs
+    )
 
 
 def plot_ss_trial(
