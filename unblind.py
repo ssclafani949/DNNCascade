@@ -570,12 +570,12 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     mask_north = utils.get_mask_north_dict([nside])[nside]
 
     # get hottest pixels
-    mlog10ps_north = np.array(mlog10ps_sky.as_array)
-    mlog10ps_north[mask_north] = -np.inf
+    mlog10ps_north = np.array(mlog10ps_sky)
+    mlog10ps_north[~mask_north] = -np.inf
     ipix_max_north = np.argmax(mlog10ps_north)
 
-    mlog10ps_south = np.array(mlog10ps_sky.as_array)
-    mlog10ps_south[~mask_north] = -np.inf
+    mlog10ps_south = np.array(mlog10ps_sky)
+    mlog10ps_south[mask_north] = -np.inf
     ipix_max_south = np.argmax(mlog10ps_south)
 
     # compute trial-corrected p-values
