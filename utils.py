@@ -73,7 +73,7 @@ def plot_skymap(
         The maximum value for the colorbar.
     figsize : tuple, optional
         The figure size to use.
-    cbar_label : str, optional
+    label : str, optional
         The label for the colorbar.
 
     Returns
@@ -90,7 +90,7 @@ def plot_skymap(
     sp.plot_gp(ax, lw=.5, **kw)
     sp.plot_gc(ax, **kw)
     ax.grid(**kw)
-    cb.set_label(cbar_label)
+    cb.set_label(label)
     fig.tight_layout()
     if outfile is not None:
         fig.savefig(outfile)
