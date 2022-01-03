@@ -264,3 +264,42 @@ def extract_hottest_p_value(ss_trial, mask_north_dict=None):
         'mlog10p_north': mlog10p_north,
         'mlog10p_south': mlog10p_south,
     })
+
+
+def recalculate_scan(scan, ts_to_p):
+    """Recalculate skyscan based on provided `ts_to_p` function.
+
+    Parameters
+    ----------
+    scan : array_like
+        The scan result of cy.trial.SkyScanTrialRunner.get_one_scan().
+        Shape: [4, npix]
+    ts_to_p : callable
+        The conversion function that maps (dec, ts) --> p-value.
+
+    Returns
+    -------
+    array_like
+        The scan with p-values recalculated based on `ts_to_p`.
+        Shape: [4, npix]
+    """
+
+    # scan shape: [4, npix]
+    # with [-log10(p), ts, ns, gamma] along first axis
+    assert len(scan) == 4
+
+    # make a new array, so that we don't modify previous scan
+    scan = np.array(scan)
+
+    ts_vals = scan[1]
+    nside = hp.get_nside(ts_vals)
+    scan_ra, scan_dec = cy.trial.SkyScanner.get_healpix_grid(nside)
+
+    # make sure that decs outside range have ts of 0
+
+    mlog10p = -np.log10(ts_to_p(scan_dec, ts_vals))
+
+    # set new p-values
+    scan[0] = mlog10p
+
+    return scan

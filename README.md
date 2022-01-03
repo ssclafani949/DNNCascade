@@ -189,4 +189,14 @@ In order to perform the trial correction for the most significant pixel in the s
         # collect correlated background trials
         python trials.py collect-sky-scan-trials-bg
 
+Note: we can recalculate the p-value for previously performed scans. This can be useful, if we increase the stats for the
+uncorrelated background trials at each declination, for instance, or if we want to change the `--fit` behaviour. 
+
+        # recalculate previous scans with `--nofit`, but now use `--fit`
+        python trials.py recalculate-sky-scan-trials --noinputfit --fit
+        
+        # recalculate previous scans with updated bg trials
+        # (We need to add `--overwrite` to overwrite existing files)
+        python trials.py recalculate-sky-scan-trials --overwrite
+
 

@@ -1111,6 +1111,89 @@ def do_sky_scan_trials(
 
 
 @cli.command()
+@click.option('--dec_deg',   default=0, type=float, help='Declination in deg')
+@click.option('-n', '--n-sig', default=0, type=float,
+              help='Number of signal events to inject')
+@click.option('--nside', default=128, type=int)
+@click.option('--poisson/--nopoisson', default=True,
+              help='toggle possion weighted signal injection')
+@click.option('--gamma', default=2.0, type=float,
+              help='Gamma for signal injection.')
+@click.option('--overwrite/--nooverwrite', default=False,
+              help='If True, existing files will be overwritten')
+@click.option('--fit/--nofit', default=False,
+              help='Use Chi2 Fit or not for the bg trials at each declination')
+@click.option('--inputfit/--noinputfit', default=False,
+              help='Use Chi2 Fit or not for the bg trials at each declination')
+@pass_state
+def recalculate_sky_scan_trials(
+        state, poisson, dec_deg, nside, n_sig, gamma, fit, inputfit,
+        overwrite):
+    """
+    Recalculate previous sky scan result based on given background trials.
+
+    This can be used to update old sky-scans if more background trials become
+    available at each declination value, or if one wants to change from
+    `--fit` (estimate via Chi2 Fit) to `--nofit` (use trials directly) and
+    vice versa.
+    """
+
+    dec = np.radians(dec_deg)
+    print('Loading background trials...')
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    if fit:
+        bgfile = '{}/bg_chi2.dict'.format(base_dir)
+        bgs = np.load(bgfile, allow_pickle=True)['dec']
+    else:
+        bgfile = '{}/bg.dict'.format(base_dir)
+        bg_trials = np.load(bgfile, allow_pickle=True)['dec']
+        bgs = {key: cy.dists.TSD(trials) for key, trials in bg_trials.items()}
+
+    def ts_to_p(dec, ts):
+        return cy.dists.ts_to_p(bgs, np.degrees(dec), ts, fit=fit)
+
+    # get input and output directories
+    base_out = '{}/skyscan/trials/{}/nside/{:04d}'.format(
+        state.base_dir, state.ana_name, nside)
+    if n_sig:
+        input_dir = '{}/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format(
+            base_out,
+            'poisson' if poisson else 'nonpoisson',
+            'fit' if inputfit else 'nofit',
+            gamma,  dec_deg, n_sig)
+        out_dir = cy.utils.ensure_dir(
+            '{}/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format(
+                base_out,
+                'poisson' if poisson else 'nonpoisson',
+                'fit' if fit else 'nofit',
+                gamma,  dec_deg, n_sig))
+    else:
+        input_dir = '{}/bg/{}'.format(base_out, 'fit' if inputfit else 'nofit')
+        out_dir = cy.utils.ensure_dir('{}/bg/{}'.format(
+            base_out, 'fit' if fit else 'nofit'))
+
+    # collect sky scans that will be recalculated
+    print('Collecting input files...')
+    input_files = sorted(glob.glob(os.path.join(input_dir, 'scan_seed_*.npy')))
+
+    print('Found {} files. Recalculating p-values...'.format(len(input_files)))
+    for input_file in input_files:
+
+        # load and recalculate scan
+        scan = np.load(input_file, allow_pickle=True)
+        new_scan = utils.recalculate_scan(scan=scan, ts_to_p=ts_to_p)
+
+        out_file = os.path.join(out_dir,  os.path.basename(input_file))
+
+        if not overwrite and os.path.exists(out_file):
+            msg = 'File {} already exists. To overwrite, pass `--overwrite`.'
+            raise IOError(msg.format(out_file))
+
+        print('-> {}'.format(out_file))
+        np.save(out_file, new_scan)
+
+
+@cli.command()
 @pass_state
 def collect_sky_scan_trials_bg(state):
     """
