@@ -131,6 +131,8 @@ def get_gp_conf(
             print('\tSetting Gamma for pi0 to: {:3.3f}!'.format(gamma))
 
         template = repo.get_template('Fermi-LAT_pi0_map')
+        template_cache_dir = cy.utils.ensure_dir(
+            '{}/templates/pi0/gamma/{:.3f}'.format(base_dir, gamma)),
         gp_conf = {
             'template': template,
             'flux': cy.hyp.PowerLawFlux(gamma),
@@ -139,7 +141,7 @@ def get_gp_conf(
             'sigsub': True,
             'update_bg': True,
             'fast_weight': False,
-            'dir': cy.utils.ensure_dir('{}/templates/pi0'.format(base_dir)),
+            'dir': template_cache_dir,
         }
     elif template_str == 'fermibubbles':
 
@@ -152,22 +154,29 @@ def get_gp_conf(
                 gamma))
 
         template = repo.get_template('Fermi_Bubbles_simple_map')
+        template_cache_dir = cy.utils.ensure_dir(
+            '{}/templates/fermibubbles/gamma/{:.3f}/cutoff_GeV/{:.0f}'.format(
+                base_dir, gamma, cutoff_GeV)),
+
+        flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV)
         gp_conf = {
             'template': template,
+            'flux': flux,
             'randomize': ['ra'],
             cy.pdf.CustomFluxEnergyPDFRatioModel: dict(
                 hkw=dict(bins=(
                        np.linspace(-1, 1, 20),
                        np.linspace(np.log10(500), 8.001, 20)
                        )),
-                flux=cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV),
+                flux=flux,
                 features=['sindec', 'log10energy'],
                 normalize_axes=([1])),
             'energy': False,
             'sigsub': True,
             'update_bg': True,
             'fast_weight': False
-            }
+            'dir': template_cache_dir,
+        }
     elif 'kra' in template_str:
 
         # check that gamma isn't set
