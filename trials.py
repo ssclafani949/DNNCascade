@@ -1231,7 +1231,8 @@ def do_bkg_trials_sourcelist (
     Used as an input for the MTR correlated trials to correctly calculate
     pre-trial pvalues
     """
-    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle')
+    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.pickle')
+    sourcelist = pd.read_pickle(src_list_file)
     ras = sourcelist.RA.values
     decs = sourcelist.DEC.values
     names = sourcelist.Names.values
@@ -1293,7 +1294,8 @@ def do_correlated_trials_sourcelist (
     """
     Use MTR for correlated background trials evaluating at each source in the sourcelist
     """
-    sourcelist = pd.read_pickle('catalogs/Source_List_DNNC.pickle')
+    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.pickle')
+    sourcelist = pd.read_pickle(src_list_file)
     ras = sourcelist.RA.values
     decs = sourcelist.DEC.values
     if seed is None:

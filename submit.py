@@ -508,7 +508,7 @@ def submit_do_sky_scan_trials (
         fmt = (
             ' {} do-sky-scan-trials --dec_deg={:+08.3f}'
             ' --n-sig={} --gamma={:.3f} --seed={} --cpus={}'
-            '--nside={} --{} --{}'
+            ' --nside={} --{} --{}'
         )
         command = fmt.format(
             trial_script,  dec_deg,

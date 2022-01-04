@@ -96,7 +96,8 @@ def unblind_sourcelist(
     Unblind Source List
     """
     trials = []
-    sourcelist = np.load('catalogs/Source_List_DNNC.npy', allow_pickle=True)
+    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.pickle')
+    sourcelist = np.load(src_list_file, allow_pickle=True)
     t0 = now()
     print(truth)
     ana = state.ana
@@ -421,8 +422,9 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         print('UNBLINDING!!!')
     for catalog in ['snr', 'pwn', 'unid']:
         print('Catalog: {}'.format(catalog))
-        cat = np.load('catalogs/{}_ESTES_12.pickle'.format(
-            catalog), allow_pickle=True)
+        catalog_file = os.path.join(
+            cg.catalog_dir, '{}_ESTES_12.pickle'.format(catalog))
+        cat = np.load(catalog_file, allow_pickle=True)
         src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
         tr = get_tr(src, TRUTH=truth)
 
