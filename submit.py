@@ -63,7 +63,7 @@ def setup_ana (state):
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--poisson/--nopoisson', default=True)
 @click.option ('--sigsub/--nosigsub', default=True)
-@click.option ('--dec', 'dec_degs', multiple=True, type=float, default=())
+@click.option ('--dec_degs', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @pass_state
@@ -477,7 +477,7 @@ def submit_do_stacking_trials (
 @click.option ('--cpus', default=1, type=int)
 @click.option ('-n', '--n-sig', default=0, type=float)
 @click.option ('--gamma', default=2, type=float)
-@click.option ('--dec', 'dec_deg',  type=float, default= 0 )
+@click.option ('--dec_deg', 'dec_deg',  type=float, default= 0 )
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option('--nside', default=128, type=int)
