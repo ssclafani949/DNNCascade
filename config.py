@@ -1,4 +1,5 @@
 # config.py
+import os
 import socket
 import numpy as np
 import csky as cy
@@ -28,6 +29,10 @@ else:
     base_dir = cy.utils.ensure_dir('/data/user/{}/data/analyses/{}'.format(username, job_base))
     ana_dir = '{}/ana'.format (base_dir)
     job_basedir = '/scratch/{}/'.format(username) 
+
+# path at which source catalogs are located
+catalog_dir = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'catalogs')
 
 # Path to submit config file. This needs to be a relative path to $HOME
 # Example content of this file:

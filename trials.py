@@ -781,8 +781,9 @@ def do_stacking_trials (
     random = cy.utils.get_random (seed) 
     print(seed)
     ana = state.ana
-    cat = np.load('catalogs/{}_ESTES_12.pickle'.format(catalog),
-        allow_pickle=True)
+    catalog_file = os.path.join(
+        cg.catalog_dir, '{}_ESTES_12.pickle'.format(catalog))
+    cat = np.load(catalog_file, allow_pickle=True)
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     def get_tr(src, gamma, cpus):
@@ -838,8 +839,9 @@ def do_stacking_sens (
     random = cy.utils.get_random (seed) 
     print(seed)
     ana = state.ana
-    cat = np.load('catalogs/{}_ESTES_12.pickle'.format(catalog),
-        allow_pickle=True)
+    catalog_file = os.path.join(
+        cg.catalog_dir, '{}_ESTES_12.pickle'.format(catalog))
+    cat = np.load(catalog_file, allow_pickle=True)
     src = cy.utils.Sources(dec=cat['dec_deg'], ra=cat['ra_deg'], deg=True)
     cutoff_GeV = cutoff * 1e3
     out_dir = cy.utils.ensure_dir ('{}/stacking/sens/{}/'.format (state.base_dir, catalog))
@@ -958,7 +960,6 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
     Does all stacking catalogs
     """
     cutoff = None
-    this_dir = os.path.dirname(os.path.abspath(__file__))
     ana = state.ana
 
     def find_n_sig_cat(src, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
@@ -1017,7 +1018,9 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
         bgfile = '{}/{}_bg.dict'.format (indir, cat)
         bg = np.load (bgfile, allow_pickle=True)
         print('CATALOG: {}'.format(cat))
-        srcs= np.load('{}/catalogs/{}_ESTES_12.pickle'.format(this_dir, cat), allow_pickle=True)
+        catalog_file = os.path.join(
+            cg.catalog_dir, '{}_ESTES_12.pickle'.format(catalog))
+        srcs = np.load(catalog_file, allow_pickle=True)
         src = cy.utils.Sources(ra = srcs['ra_deg'], dec=srcs['dec_deg'], deg=True)
         for gamma in sig['gamma'].keys():
             print ('Gamma: {}'.format(gamma))
