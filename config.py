@@ -132,7 +132,7 @@ def get_gp_conf(
 
         template = repo.get_template('Fermi-LAT_pi0_map')
         template_cache_dir = cy.utils.ensure_dir(
-            '{}/templates/pi0/gamma/{:.3f}'.format(base_dir, gamma)),
+            '{}/templates/pi0/gamma/{:.3f}'.format(base_dir, gamma))
         gp_conf = {
             'template': template,
             'flux': cy.hyp.PowerLawFlux(gamma),
@@ -156,7 +156,7 @@ def get_gp_conf(
         template = repo.get_template('Fermi_Bubbles_simple_map')
         template_cache_dir = cy.utils.ensure_dir(
             '{}/templates/fermibubbles/gamma/{:.3f}/cutoff_GeV/{:.0f}'.format(
-                base_dir, gamma, cutoff_GeV)),
+                base_dir, gamma, cutoff_GeV))
 
         flux = cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV)
         gp_conf = {
