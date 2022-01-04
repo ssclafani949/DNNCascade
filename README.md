@@ -257,4 +257,42 @@ Once the uncorrelated trials are done, we can run correlated ones:
         python submit.py submit-do-sky-scan-trials --n-jobs 1000 --seed 0
         
         
+## Unblinding
+
+For the p-value calculation, it's helpful to have an overview of the number of background trials. 
+P-values are obtained from the trials directly, rather than using a Chi2 fit.
+The number of background trials that go into each analysis may be checked via
         
+        python check_trials.py
+
+The script also computes the most significant result that can still be trusted given the number of background trials.
+This boundary is defined as the p-value above which `N` background trials remain. Per default, `N` is set to 100,
+but it can be adjusted by adding the flag `--trials-after <N>`.
+       
+In the following, the commands are detailled that may be used to unblind the indiviual searches.
+        
+        # unblind the source list
+        python unblind.py unblind-sourcelist
+        
+        # unblind the Galactic plane templates
+        python unblind.py unblind-gp pi0
+        python unblind.py unblind-gp kra5
+        python unblind.py unblind-gp kra50
+        
+        # unblind Fermi bubble template
+        python unblind.py unblind-fermibubbles
+        
+        # unblind stacking catalogs
+        python unblind.py unblind-stacking
+        
+        # unblind skyscan
+        python unblind.py unblind-skyscan --cpus 15
+
+The above commands will run the "unblinding" for a given data scramble. 
+This can be used to test if everything is working as intended. 
+To perform the actual unblinding, the flag `--TRUTH` must be added.
+
+
+
+
+
