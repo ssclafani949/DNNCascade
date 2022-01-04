@@ -239,7 +239,7 @@ def submit_do_bkg_trials_sourcelist (
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
-    trial_script = os.path.abspath('unblind.py')
+    trial_script = os.path.abspath('trials.py')
     if sourcenum:
         sources = sourcenum
     else:
