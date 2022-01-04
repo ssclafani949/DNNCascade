@@ -174,7 +174,7 @@ def get_gp_conf(
             'energy': False,
             'sigsub': True,
             'update_bg': True,
-            'fast_weight': False
+            'fast_weight': False,
             'dir': template_cache_dir,
         }
     elif 'kra' in template_str:
