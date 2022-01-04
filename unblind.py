@@ -96,7 +96,7 @@ def unblind_sourcelist(
     Unblind Source List
     """
     trials = []
-    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.pickle')
+    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.npy')
     sourcelist = np.load(src_list_file, allow_pickle=True)
     t0 = now()
     print(truth)
