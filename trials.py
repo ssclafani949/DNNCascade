@@ -184,7 +184,7 @@ def do_ps_trials (
     dir = cy.utils.ensure_dir ('{}/ps/'.format (state.base_dir, dec_deg))
     a = ana[0]
 
-    def get_tr(sindec, gamma, cpus):
+    def get_tr(sindec, gamma, cpus, sigsub):
         src = cy.utils.sources(0, np.arcsin(sindec), deg=False)
         conf = cg.get_ps_conf(
             src=src, gamma=gamma, cutoff_GeV=cutoff_GeV, sigsub=sigsub)
