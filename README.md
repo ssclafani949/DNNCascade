@@ -47,7 +47,7 @@ source  ~/path/to/venv/bin/activate
 ```
 To submit a job an example would be:
 
-`python submit.py submit-do-ps-trials --dec_degs 30 --n_trials 1000 --n-jobs 1 --gamma 2 --n-sig 0 --n-sig 10`
+`python submit.py submit-do-ps-trials --dec_degs 30 --n-trials 1000 --n-jobs 1 --gamma 2 --n-sig 0 --n-sig 10`
 
 This will submit 1 job to run 1000 bg trials and 1000 trials with n-sig of 0 and a nsig of 10.  The default paramaters will be to run enough trials for analysis calculations
 
@@ -200,3 +200,61 @@ uncorrelated background trials at each declination, for instance, or if we want 
         python trials.py recalculate-sky-scan-trials --overwrite
 
 
+## List of submitter commands for background trials
+
+For convenience, here is a list of submitter commands to run the background trials. 
+These are pasted here to illustrate the syntax. Final background trials used in this analysis may
+use different seeds and the amount may also vary. Note that the jobs will utilize seeds
+from `--seed` to `--seed + --n-jobs -1`. So if submitting 1000 jobs at an initial seed of 0,
+the next submission should start at `--seed 1000`.
+
+        # bg trials for ps from -81° to 81° in increments of 2°
+        # (1M trials at each dec, ~0.3s/trial)
+        python submit.py submit-do-ps-trials --n-trials 10000 --n-jobs 100 --n-sig 0 --seed 0
+        
+        # bg trials for source list at source declinations
+        # (1M trials at each source, ~0.3s/trial)
+        python submit.py submit-do-bkg-trials-sourcelist --n-trials 10000 --n-jobs 100 --seed 0
+        
+        # bg trials for pi0 template (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 pi0
+        
+        # bg trials for kra5 template (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra5
+        
+        # bg trials for kra50 template (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra50
+        
+        # bg trials for fermibubbles with 50 TeV cutoff (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 50 --seed 0 fermibubbles
+        
+        # bg trials for fermibubbles with 100 TeV cutoff (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 100 --seed 0 fermibubbles
+        
+        # bg trials for fermibubbles with 500 TeV cutoff (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 500 --seed 0 fermibubbles
+        
+        # bg trials for stacking catalog unid (1M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog unid --seed 0
+        
+        # bg trials for stacking catalog pwn (1M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog pwn --seed 0
+        
+        # bg trials for stacking catalog snr (1M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog snr --seed 0
+        
+        
+        
+Once the uncorrelated trials are done, we can run correlated ones:
+
+        # correlated trials for source list (10K trials, ~30s/trial)
+        python submit.py submit-do-correlated-trials-sourcelist --n-trials 100 --n-jobs 100 --seed 0
+        
+        # correlated trials for fermibubbles (50M trials, ~0.2s/trial)
+        python submit.py submit-do-correlated-trials-fermibubbles --n-trials 50000 --n-jobs 1000 --seed 0
+        
+        # sky-scan trials (1000 trials, ~8h/trial)
+        python submit.py submit-do-sky-scan-trials --n-jobs 1000 --seed 0
+        
+        
+        

@@ -187,7 +187,7 @@ def submit_do_correlated_trials_sourcelist(
 
 
 @cli.command()
-@click.option('--n-trials', default=100, type=int)
+@click.option('--n-trials', default=50000, type=int)
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
@@ -271,7 +271,7 @@ def submit_do_bkg_trials_sourcelist (
 
 @cli.command ()
 @click.argument ('temp')
-@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--n-trials', default=50000, type=int)
 @click.option ('--n-jobs', default=10, type=int)
 @click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
 @click.option ('--poisson/--nopoisson', default=True)
