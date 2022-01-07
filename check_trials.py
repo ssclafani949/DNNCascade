@@ -292,7 +292,7 @@ def check_fermibubbles(state, trials_after=100):
     n_min = None
 
     # loop through cutoffs
-    for cutoff in [50, 100, 500]:
+    for cutoff in [50, 100, 500, np.inf]:
         bg = cy.dists.TSD(sig['poisson']['cutoff'][cutoff]['nsig'][0.0]['ts'])
 
         pval = get_pval_bound(bg, trials_after=trials_after)

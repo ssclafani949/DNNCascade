@@ -124,7 +124,7 @@ For convenience, the analysis chain for a reduced number of trials and signal in
         python trials.py find-gp-n-sig --nofit 
         
         
-Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
+Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500, inf]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
 
 
 ## Analysis chain for stacking analyses
@@ -171,7 +171,7 @@ The most significant source from the source list will be reported. In order to p
 
 ## Correlated trials for Fermibubble cutoffs
 
-In order to perform the trial correction for the most significant cutoff energy for the Fermi bubble template, correlated trials are considered with csky's `MultiTrialRunner`. We can use the trials for each cutoff `[50, 100, 500] TeV` that we've computed before and utilize these for the `MultiTrialRunner` to compute correlated trials.
+In order to perform the trial correction for the most significant cutoff energy for the Fermi bubble template, correlated trials are considered with csky's `MultiTrialRunner`. We can use the trials for each cutoff `[50, 100, 500, inf] TeV` that we've computed before and utilize these for the `MultiTrialRunner` to compute correlated trials.
 
         # perform correlated trials
         python trials.py do-correlated-trials-fermibubbles --cpus <ncpus> --n-trials <ntrials>
@@ -233,6 +233,9 @@ the next submission should start at `--seed 1000`.
         
         # bg trials for fermibubbles with 500 TeV cutoff (50M trials, ~0.08s/trial)
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 500 --seed 0 fermibubbles
+        
+        # bg trials for fermibubbles with no cutoff (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff inf --seed 0 fermibubbles
         
         # bg trials for stacking catalog unid (1M trials, ~1s/trial)
         python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog unid --seed 0

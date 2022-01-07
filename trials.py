@@ -1378,7 +1378,7 @@ def do_correlated_trials_fermibubbles(
 
     Use MTR for correlated background trials evaluating for each cutoff
     """
-    cutoffs = [50, 100, 500]
+    cutoffs = [50, 100, 500, np.inf]
     if seed is None:
         seed = int(time.time() % 2**32)
 
