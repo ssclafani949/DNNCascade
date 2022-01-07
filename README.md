@@ -217,7 +217,7 @@ the next submission should start at `--seed 1000`.
         python submit.py submit-do-bkg-trials-sourcelist --n-trials 10000 --n-jobs 100 --seed 0
         
         # bg trials for pi0 template (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 pi0
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --seed 0 pi0
         
         # bg trials for kra5 template (50M trials, ~0.08s/trial)
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra5
@@ -226,16 +226,16 @@ the next submission should start at `--seed 1000`.
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra50
         
         # bg trials for fermibubbles with 50 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 50 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 50 --seed 0 fermibubbles
         
         # bg trials for fermibubbles with 100 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 100 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 100 --seed 0 fermibubbles
         
         # bg trials for fermibubbles with 500 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 500 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 500 --seed 0 fermibubbles
         
         # bg trials for fermibubbles with no cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff inf --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff inf --seed 0 fermibubbles
         
         # bg trials for stacking catalog unid (1M trials, ~1s/trial)
         python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog unid --seed 0
@@ -256,7 +256,7 @@ Once the uncorrelated trials are done, we can run correlated ones:
         # correlated trials for fermibubbles (50M trials, ~0.2s/trial)
         python submit.py submit-do-correlated-trials-fermibubbles --n-trials 50000 --n-jobs 1000 --seed 0
         
-        # sky-scan trials (1000 trials, ~8h/trial)
+        # sky-scan trials (1000 trials, ~12h/trial)
         python submit.py submit-do-sky-scan-trials --n-jobs 1000 --seed 0
         
         

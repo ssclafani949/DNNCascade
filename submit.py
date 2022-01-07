@@ -66,11 +66,12 @@ def setup_ana (state):
 @click.option ('--dec_degs', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_ps_trials (
         state, n_trials, n_jobs, n_sigs, gamma, 
         cutoff,  poisson, sigsub, dec_degs, dry, 
-        seed):
+        seed, memory):
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
@@ -78,7 +79,7 @@ def submit_do_ps_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/ps_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     #reqs = '(Machine != "cobol97.private.pa.umd.edu") & (Machine != "cobol94.private.pa.umd.edu")'
@@ -113,15 +114,16 @@ def submit_do_ps_trials (
 @click.option ('--dec_deg',   default=0, type=float, help='Declination in deg')
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
+@click.option('--memory', default=5, type=float, help='Requested memory (GB)')
 @pass_state                                                                                                               
 def submit_do_ps_sens (
-        state, n_trials,  gamma,dec_deg,  dry, seed):
+        state, n_trials,  gamma,dec_deg,  dry, seed, memory):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/ECAS_11yr/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     #env_shell = os.getenv ('I3_BUILD') + '/env-shell.sh'
     commands, labels = [], []
@@ -157,16 +159,17 @@ def submit_do_ps_sens (
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_correlated_trials_sourcelist(
-        state, n_trials, n_jobs,  dry, seed):
+        state, n_trials, n_jobs,  dry, seed, memory):
     ana_name = state.ana_name
     T = time.time()
     job_basedir = state.job_basedir
     job_dir = '{}/{}/correlated_trials_sourcelist/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
     sub = Submitter(
-        job_dir=job_dir, memory=5,
+        job_dir=job_dir, memory=memory,
         max_jobs=1000, config=submit_cfg_file)
 
     commands, labels = [], []
@@ -191,16 +194,17 @@ def submit_do_correlated_trials_sourcelist(
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_correlated_trials_fermibubbles(
-        state, n_trials, n_jobs,  dry, seed):
+        state, n_trials, n_jobs,  dry, seed, memory):
     ana_name = state.ana_name
     T = time.time()
     job_basedir = state.job_basedir
     job_dir = '{}/{}/correlated_trials_fermibubbles/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
     sub = Submitter(
-        job_dir=job_dir, memory=5,
+        job_dir=job_dir, memory=memory,
         max_jobs=1000, config=submit_cfg_file)
 
     commands, labels = [], []
@@ -227,15 +231,16 @@ def submit_do_correlated_trials_fermibubbles(
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option ('-sourcenum', multiple=True, default=None, type=float)
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state                                                                                                               
 def submit_do_bkg_trials_sourcelist (
-        state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum):
+        state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum, memory):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/correlated_trials_sourcelist_bkg/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -278,10 +283,11 @@ def submit_do_bkg_trials_sourcelist (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--seed', default=0, type=int)
+@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_gp_trials (
         state, temp, n_trials, n_jobs, n_sigs, 
-        poisson, dry, cutoff, seed):
+        poisson, dry, cutoff, seed, memory):
     #example command using click python submit.py submit-do-gp-trials --n-sig=0 --n-jobs=1 --n-trials=1000 pi0
     ana_name = state.ana_name
     T = time.time ()
@@ -289,7 +295,7 @@ def submit_do_gp_trials (
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_dir = '{}/{}/gp_trials/{}/T_{:17.6f}'.format (
         job_basedir, ana_name, temp, T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     reqs = '(Machine != "cobol93.private.pa.umd.edu")'
@@ -324,15 +330,16 @@ def submit_do_gp_trials (
 @click.option ('--nsigma', default=None)
 @click.option ('--seed', default=0)
 @click.option ('--template', default='kra5')
+@click.option('--memory', default=5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_gp_sens (
-        state, n_trials, dry, gamma, cutoff, seed, template, nsigma):
+        state, n_trials, dry, gamma, cutoff, seed, template, nsigma, memory):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir #'/scratch/ssclafani/' 
     job_dir = '{}/{}/ECAS_gp/T_{:17.6f}'.format (
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -370,16 +377,17 @@ def submit_gp_sens (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option ('--template', default='kra5')
+@click.option('--memory', default=5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_gp_erange (
-        state, n_trials, dry, seed, template):
+        state, n_trials, dry, seed, template, memory):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir #'/scratch/ssclafani/' 
     job_dir = '{}/{}/gp_erange/T_{:17.6f}'.format (
 
         job_basedir, ana_name,  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
@@ -429,17 +437,18 @@ def submit_gp_erange (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--catalog', type=str, default=None)
 @click.option ('--seed', default=0)
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_stacking_trials (
         state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson,  dry, 
-        catalog,  seed):
+        catalog,  seed, memory):
     ana_name = state.ana_name
     T = time.time ()
     poisson_str = 'poisson' if poisson else 'nopoisson'
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/stacking_trials/T_E{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100),  T)
-    sub = Submitter (job_dir=job_dir, memory=5, 
+    sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
@@ -485,11 +494,12 @@ def submit_do_stacking_trials (
               help='toggle possion weighted signal injection')
 @click.option('--fit/--nofit', default=False,
               help='Use Chi2 Fit or not for the bg trials at each declination')
+@click.option('--memory', default=5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_sky_scan_trials (
         state,  n_jobs, cpus, n_sig, gamma, nside, poisson, fit,
          dec_deg, dry, 
-        seed):
+        seed, memory):
     ana_name = state.ana_name
     T = time.time ()
 
@@ -499,7 +509,7 @@ def submit_do_sky_scan_trials (
     job_basedir = state.job_basedir 
     job_dir = '{}/{}/skyscan_trials/T_E{}_n_sig_{}_{:17.6f}'.format (
         job_basedir, ana_name, int(gamma * 100), n_sig,  T)
-    sub = Submitter (job_dir=job_dir, memory=7, ncpu=cpus, 
+    sub = Submitter (job_dir=job_dir, memory=memory, ncpu=cpus,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
     trial_script = os.path.abspath('trials.py')
