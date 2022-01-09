@@ -210,11 +210,11 @@ the next submission should start at `--seed 1000`.
 
         # bg trials for ps from -81° to 81° in increments of 2°
         # (1M trials at each dec, ~0.3s/trial)
-        python submit.py submit-do-ps-trials --n-trials 10000 --n-jobs 100 --n-sig 0 --seed 0
+        python submit.py submit-do-ps-trials --n-trials 20000 --n-jobs 50 --n-sig 0 --seed 0
         
         # bg trials for source list at source declinations
         # (1M trials at each source, ~0.3s/trial)
-        python submit.py submit-do-bkg-trials-sourcelist --n-trials 10000 --n-jobs 100 --seed 0
+        python submit.py submit-do-bkg-trials-sourcelist --n-trials 20000 --n-jobs 50 --seed 0
         
         # bg trials for pi0 template (50M trials, ~0.08s/trial)
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --seed 0 pi0

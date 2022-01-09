@@ -66,7 +66,7 @@ def setup_ana (state):
 @click.option ('--dec_degs', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
-@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_ps_trials (
         state, n_trials, n_jobs, n_sigs, gamma, 
@@ -194,7 +194,7 @@ def submit_do_correlated_trials_sourcelist(
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
-@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=7, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_correlated_trials_fermibubbles(
         state, n_trials, n_jobs,  dry, seed, memory):
@@ -230,8 +230,8 @@ def submit_do_correlated_trials_fermibubbles(
 @click.option ('--gamma', default=2, type=float)
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
-@click.option ('-sourcenum', multiple=True, default=None, type=float)
-@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
+@click.option ('-sourcenum', multiple=True, default=None, type=int)
+@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
 @pass_state                                                                                                               
 def submit_do_bkg_trials_sourcelist (
         state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum, memory):
