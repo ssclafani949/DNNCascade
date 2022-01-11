@@ -1328,7 +1328,7 @@ def do_correlated_trials_sourcelist (
         # use multiprocessing
         mp_cpus=cpus,
     )
-    trials = multr.get_many_fits(n_trials)
+    trials = multr.get_many_fits(n_trials, seed=seed)
     t1 = now ()
     flush ()
     out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/correlated_bg/'.format (
@@ -1418,7 +1418,7 @@ def do_correlated_trials_fermibubbles(
         # use multiprocessing
         mp_cpus=cpus,
     )
-    trials = multr.get_many_fits(n_trials)
+    trials = multr.get_many_fits(n_trials, seed=seed)
     t1 = now()
     flush()
     out_dir = cy.utils.ensure_dir('{}/correlated_trials/correlated_bg'.format(
