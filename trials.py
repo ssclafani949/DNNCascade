@@ -1368,6 +1368,165 @@ def collect_correlated_trials_sourcelist(state):
 
 @cli.command()
 @click.option(
+    '--n-trials', default=100, type=int, help='number of trials to run')
+@click.option('--cpus', default=1, type=int, help='ncpus')
+@click.option('--seed', default=None, type=int, help='Trial injection seed')
+@click.option(
+    '--gamma', default=2, type=float, help='Signal injection spectrum.')
+@click.option(
+    '-c', '--cutoff', default=np.inf, type=float,
+    help='Exponential cutoff energy (TeV) for signal injection.')
+@click.option(
+    '-n', '--n-sig', default=0, type=float,
+    help='Number of signal events to inject. Note these are distributed among'
+    ' selected sources for injection.'
+    )
+@click.option(
+    '--poisson/--nopoisson', default=True,
+    help='toggle possion weighted signal injection')
+@click.option(
+    '--sourcenum', multiple=True, default=None, type=int,
+    help='The sources at which to inject. If None, all sources are used.')
+@click.option(
+    '--n-random-sources', default=None, type=int,
+    help='If provided, this number of random sources will be draw from'
+    'the provided list of sources without replacement.'
+    )
+@pass_state
+def do_correlated_trials_sourcelist_sig(
+        state, n_trials, cpus, seed, gamma, cutoff, n_sig, poisson, sourcenum,
+        n_random_sources, logging=True):
+    """
+    Use MTR for correlated signal trials evaluating at each source in the
+    source list.
+    """
+
+    src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.pickle')
+    sourcelist = pd.read_pickle(src_list_file)
+    ras = sourcelist.RA.values
+    decs = sourcelist.DEC.values
+    if seed is None:
+        seed = int(time.time() % 2**32)
+
+    t0 = now()
+    ana = state.ana
+    print('Loading Backgrounds')
+    bgs = np.load('{}/ps/correlated_trials/pretrial_bgs.npy'.format(
+        state.base_dir), allow_pickle=True)
+    assert len(bgs) == len(sourcelist)
+
+    # -----------------------
+    # define signal injection
+    # -----------------------
+
+    # collect sources
+    if sourcenum:
+        sources = sourcenum
+        source_dir_str = 'sources'
+        for source_i in sources:
+            source_dir_str += '_{:02d}'.format(source_i)
+
+    else:
+        source_dir_str = 'all_sources'
+        nsources = 109
+        sources = [int(source) for source in range(nsources)]
+
+    if n_random_sources:
+        rng = np.random.RandomState(seed=seed)
+        msg = (
+            'Specified number of random sources {} is larger than number '
+            'of available sources {}!'
+        )
+        if len(sources) < n_random_sources:
+            raise ValueError(msg.format(n_random_sources, len(sources)))
+
+        sources = rng.choice(sources, size=n_random_sources, replace=False)
+
+    n_sources = len(sources)
+
+    cutoff_GeV = cutoff * 1e3
+    inj_src = cy.utils.sources(ra=ras[sources], dec=decs[sources], deg=True)
+    inj_conf = {
+        'src': inj_src,
+        'flux': cy.hyp.PowerLawFlux(gamma, energy_cutoff=cutoff_GeV),
+    }
+    # -----------------------
+
+    def get_tr(dec, ra, cpus=cpus, inj_conf={}):
+        src = cy.utils.sources(ra=ra, dec=dec, deg=True)
+        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        tr = cy.get_trial_runner(
+            ana=ana, conf=conf, mp_cpus=cpus, inj_conf=inj_conf)
+        return tr
+
+    print('Getting trial runners')
+    trs = [get_tr(d, r) for d, r in zip(decs, ras)]
+    assert len(trs) == len(bgs)
+
+    tr_inj = trs[0]
+    multr = cy.trial.MultiTrialRunner(
+        ana,
+        # bg+sig injection trial runner (produces trials)
+        tr_inj,
+        # llh test trial runners (perform fits given trials)
+        trs,
+        # background distrubutions
+        bgs=bgs,
+        # use multiprocessing
+        mp_cpus=cpus,
+    )
+    trials = multr.get_many_fits(
+        n_trials, n_sig=n_sig, poisson=poisson, seed=seed, logging=logging)
+    t1 = now()
+    flush()
+    out_dir = cy.utils.ensure_dir(
+        ('{}/ps/correlated_trials/correlated_sig/{}/{}/gamma/{:.3f}/'
+            'cutoff_TeV/{:.0f}/{}/{}/n_sources/{:03d}/nsig/{:08.3f}').format(
+            state.base_dir, state.ana_name,
+            'poisson' if poisson else 'nonpoisson',
+            gamma, cutoff, source_dir_str,
+            'random_sources' if n_random_sources else 'non_random_sources',
+            n_sources, n_sig))
+
+    out_file = '{}/correlated_trials_{:07d}__seed_{:010d}.npy'.format(
+        out_dir, n_trials, seed)
+    print ('-> {}'.format(out_file))
+    np.save(out_file, trials.as_array)
+
+
+@cli.command()
+@pass_state
+def collect_correlated_trials_sourcelist_sig(state):
+    """
+    Collect all the correlated MultiTrialRunner signal trials from the
+    do-correlated-trials-sourcelist-sig into one list.
+    """
+    def post_convert(x):
+        trials = cy.utils.Arrays(x)
+
+        # find and add hottest source
+        # shape: [n_trials, n_sources]
+        mlog10ps = np.stack([
+            trials[k] for k in trials.keys() if k[:8] == 'mlog10p_'], axis=1)
+
+        trials['ts'] = np.max(mlog10ps, axis=1)
+        trials['idx_hottest'] = np.argmax(mlog10ps, axis=1)
+
+        return trials
+
+    base_dir = '{}/ps/correlated_trials/'.format(state.base_dir)
+    trials = cy.bk.get_all(
+        base_dir + 'correlated_sig/', 'correlated_trials_*.npy',
+        merge=np.concatenate,
+        post_convert=post_convert,
+    )
+
+    with open('{}correlated_sig.npy'.format(base_dir), 'wb') as f:
+        pickle.dump(trials, f, -1)
+
+
+@cli.command()
+@click.option(
     '--n-trials', default=10000, type=int, help='Number of trials to run')
 @click.option('--cpus', default=1, type=int, help='ncpus')
 @click.option('--seed', default=None, type=int, help='Trial injection seed')
