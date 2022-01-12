@@ -250,8 +250,8 @@ the next submission should start at `--seed 1000`.
         
 Once the uncorrelated trials are done, we can run correlated ones:
 
-        # correlated trials for source list (10K trials, ~30s/trial)
-        python submit.py submit-do-correlated-trials-sourcelist --n-trials 100 --n-jobs 100 --seed 0
+        # correlated trials for source list (100K trials, ~30s/trial)
+        python submit.py submit-do-correlated-trials-sourcelist --n-trials 1000 --n-jobs 100 --seed 0
         
         # correlated trials for fermibubbles (50M trials, ~0.2s/trial)
         python submit.py submit-do-correlated-trials-fermibubbles --n-trials 50000 --n-jobs 1000 --seed 0
