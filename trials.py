@@ -1460,7 +1460,7 @@ def do_correlated_trials_sourcelist_sig(
         return tr
 
     print('Getting trial runners')
-    trs = [get_tr(d, r) for d, r in zip(decs, ras)]
+    trs = [get_tr(d, r, inj_conf=inj_conf) for d, r in zip(decs, ras)]
     assert len(trs) == len(bgs)
 
     tr_inj = trs[0]
