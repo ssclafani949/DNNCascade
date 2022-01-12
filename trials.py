@@ -1421,7 +1421,7 @@ def do_correlated_trials_sourcelist_sig(
 
     # collect sources
     if sourcenum:
-        sources = sourcenum
+        sources = sorted(list(sourcenum))
         source_dir_str = 'sources'
         for source_i in sources:
             source_dir_str += '_{:02d}'.format(source_i)
