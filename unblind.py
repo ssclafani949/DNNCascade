@@ -269,7 +269,7 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
               help='Must be Set to TRUE to unblind')
 @pass_state
 def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
-    """Unblind Fermi bubble templates with cutoffs 50/100/500 TeV
+    """Unblind Fermi bubble templates with cutoffs 50/100/500/inf TeV
     """
     if seed is None:
         seed = int(time.time() % 2**32)
@@ -277,7 +277,7 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     print('Seed: {}'.format(seed))
     ana = state.ana
 
-    cutoffs = [50, 100, 500]
+    cutoffs = [50, 100, 500, np.inf]
 
     def get_tr(cutoff, TRUTH):
         cutoff_GeV = cutoff * 1e3
@@ -310,16 +310,20 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     sig = np.load(sigfile, allow_pickle=True)
     bgs = []
     for cutoff in cutoffs:
-        # safety check to make sure the correct bg trials exist
-        # ToDo: csky.bk.get_best should be modified to check for maximum
-        # allowed difference, if provided.
-        c_keys = list(sig['poisson']['cutoff'].keys())
-        if not np.any(np.abs([c - cutoff for c in c_keys]) < 1e-3):
-            msg = 'Cutoff {:3.4f} does not exist in bg trials: {}!'
-            raise ValueError(msg.format(cutoff, c_keys))
+        if cutoff in sig['poisson']['cutoff']:
+            sig_trials = sig['poisson']['cutoff'][cutoff]['nsig']
+        else:
+            # safety check to make sure the correct bg trials exist
+            # ToDo: csky.bk.get_best should be modified to check for maximum
+            # allowed difference, if provided.
+            c_keys = list(sig['poisson']['cutoff'].keys())
+            if not np.any(np.abs([c - cutoff for c in c_keys]) < 1e-3):
+                msg = 'Cutoff {:3.4f} does not exist in bg trials: {}!'
+                raise ValueError(msg.format(cutoff, c_keys))
 
-        # get background trials
-        sig_trials = cy.bk.get_best(sig, 'poisson', 'cutoff', cutoff, 'nsig')
+            # get background trials
+            sig_trials = cy.bk.get_best(
+                sig, 'poisson', 'cutoff', cutoff, 'nsig')
         bgs.append(cy.dists.TSD(sig_trials[0.0]['ts']))
 
     # -------------------

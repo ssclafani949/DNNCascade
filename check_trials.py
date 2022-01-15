@@ -175,8 +175,7 @@ def check_sourcelist(state, trials_after=100):
     """
     base_dir = os.path.join(state.base_dir, 'ps/correlated_trials')
     bgfile_corr = '{}/correlated_bg.npy'.format(base_dir)
-    trials_corr = np.load(bgfile_corr, allow_pickle=True)
-    bg_corr = cy.dists.TSD(trials_corr)
+    bg_corr = np.load(bgfile_corr, allow_pickle=True)
 
     bgfile = '{}/pretrial_bgs.npy'.format(base_dir)
     bgs = np.load(bgfile, allow_pickle=True)
@@ -248,7 +247,7 @@ def check_gp(state, trials_after=100):
             state.ana_name, template)
         sigfile = '{}/trials.dict'.format(base_dir)
         sig = np.load(sigfile, allow_pickle=True)
-        bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
+        bg = sig['poisson']['nsig'][0.0]['ts']
 
         pval = get_pval_bound(bg, trials_after=trials_after)
         nsigma = pval_to_nsigma(pval)
@@ -282,8 +281,7 @@ def check_fermibubbles(state, trials_after=100):
     base_dir = state.base_dir + '/gp/trials/{}/fermibubbles/'.format(
         state.ana_name)
     bgfile_corr = '{}/correlated_trials/correlated_bg.npy'.format(base_dir)
-    trials_corr = np.load(bgfile_corr, allow_pickle=True)
-    bg_corr = cy.dists.TSD(trials_corr)
+    bg_corr = np.load(bgfile_corr, allow_pickle=True)
 
     # load bkg trials for each cutoff
     sig = np.load('{}/trials.dict'.format(base_dir), allow_pickle=True)
@@ -292,8 +290,8 @@ def check_fermibubbles(state, trials_after=100):
     n_min = None
 
     # loop through cutoffs
-    for cutoff in [50, 100, 500]:
-        bg = cy.dists.TSD(sig['poisson']['cutoff'][cutoff]['nsig'][0.0]['ts'])
+    for cutoff in [50, 100, 500, np.inf]:
+        bg = sig['poisson']['cutoff'][cutoff]['nsig'][0.0]['ts']
 
         pval = get_pval_bound(bg, trials_after=trials_after)
         nsigma = pval_to_nsigma(pval)
@@ -343,8 +341,7 @@ def check_stacking(state, trials_after=100):
 
         # load trials
         bgfile = '{}/stacking//{}_bg.dict'.format(state.base_dir, catalog)
-        b = np.load(bgfile, allow_pickle=True)
-        bg = cy.dists.TSD(b)
+        bg = np.load(bgfile, allow_pickle=True)
 
         pval = get_pval_bound(bg, trials_after=trials_after)
         nsigma = pval_to_nsigma(pval)

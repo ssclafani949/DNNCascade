@@ -6,11 +6,12 @@ Analysis wiki: https://wiki.icecube.wisc.edu/index.php/Cascade_Neutrino_Source_D
 Requirements: 
 
 * cvmfs with python 3 `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
-* csky tag v1.1.6
+* csky tag v1.1.7
 * click (any version should work, but ran with version 7.1.2)
-* numpy (any version should work, but ran with version 1.18.5)
-* pandas (any version should work, but ran with version 1.1.1)
-* matplotlib (ran with version 3.5.1, submitter might need version < 3.1 + MPLBACKEND='AGG')
+* pandas (any version should work, but ran with version 1.1.1 )
+* numpy (any version should work, but ran with version 1.18.5 [dep. of csky])
+* scipy (any version should work, but ran with version 1.7.3 [dep. of csky])
+* matplotlib (ran with version 3.5.1, submitter might need version < 3.1 + MPLBACKEND='AGG'  [dep. of csky])
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
@@ -124,7 +125,7 @@ For convenience, the analysis chain for a reduced number of trials and signal in
         python trials.py find-gp-n-sig --nofit 
         
         
-Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
+Insert each of `[pi0, kra5, kra50, fermibubbles]` for `<template>` and for the fermibubbles each of `[50, 100, 500, inf]` for `<cutoff>`. A reduced set of different `<n-sig>` values for testing could be: `[50, 100, 200, 300]`.
 
 
 ## Analysis chain for stacking analyses
@@ -171,7 +172,7 @@ The most significant source from the source list will be reported. In order to p
 
 ## Correlated trials for Fermibubble cutoffs
 
-In order to perform the trial correction for the most significant cutoff energy for the Fermi bubble template, correlated trials are considered with csky's `MultiTrialRunner`. We can use the trials for each cutoff `[50, 100, 500] TeV` that we've computed before and utilize these for the `MultiTrialRunner` to compute correlated trials.
+In order to perform the trial correction for the most significant cutoff energy for the Fermi bubble template, correlated trials are considered with csky's `MultiTrialRunner`. We can use the trials for each cutoff `[50, 100, 500, inf] TeV` that we've computed before and utilize these for the `MultiTrialRunner` to compute correlated trials.
 
         # perform correlated trials
         python trials.py do-correlated-trials-fermibubbles --cpus <ncpus> --n-trials <ntrials>
@@ -210,14 +211,14 @@ the next submission should start at `--seed 1000`.
 
         # bg trials for ps from -81° to 81° in increments of 2°
         # (1M trials at each dec, ~0.3s/trial)
-        python submit.py submit-do-ps-trials --n-trials 10000 --n-jobs 100 --n-sig 0 --seed 0
+        python submit.py submit-do-ps-trials --n-trials 20000 --n-jobs 50 --n-sig 0 --seed 0
         
         # bg trials for source list at source declinations
         # (1M trials at each source, ~0.3s/trial)
-        python submit.py submit-do-bkg-trials-sourcelist --n-trials 10000 --n-jobs 100 --seed 0
+        python submit.py submit-do-bkg-trials-sourcelist --n-trials 20000 --n-jobs 50 --seed 0
         
         # bg trials for pi0 template (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 pi0
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --seed 0 pi0
         
         # bg trials for kra5 template (50M trials, ~0.08s/trial)
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra5
@@ -226,34 +227,37 @@ the next submission should start at `--seed 1000`.
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --seed 0 kra50
         
         # bg trials for fermibubbles with 50 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 50 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 50 --seed 0 fermibubbles
         
         # bg trials for fermibubbles with 100 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 100 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 100 --seed 0 fermibubbles
         
         # bg trials for fermibubbles with 500 TeV cutoff (50M trials, ~0.08s/trial)
-        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --cutoff 500 --seed 0 fermibubbles
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff 500 --seed 0 fermibubbles
         
-        # bg trials for stacking catalog unid (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog unid --seed 0
+        # bg trials for fermibubbles with no cutoff (50M trials, ~0.08s/trial)
+        python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff inf --seed 0 fermibubbles
         
-        # bg trials for stacking catalog pwn (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog pwn --seed 0
+        # bg trials for stacking catalog unid (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog unid --seed 0
         
-        # bg trials for stacking catalog snr (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog snr --seed 0
+        # bg trials for stacking catalog pwn (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog pwn --seed 0
+        
+        # bg trials for stacking catalog snr (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog snr --seed 0
         
         
         
 Once the uncorrelated trials are done, we can run correlated ones:
 
-        # correlated trials for source list (10K trials, ~30s/trial)
-        python submit.py submit-do-correlated-trials-sourcelist --n-trials 100 --n-jobs 100 --seed 0
+        # correlated trials for source list (100K trials, ~30s/trial)
+        python submit.py submit-do-correlated-trials-sourcelist --n-trials 1000 --n-jobs 100 --seed 0
         
         # correlated trials for fermibubbles (50M trials, ~0.2s/trial)
         python submit.py submit-do-correlated-trials-fermibubbles --n-trials 50000 --n-jobs 1000 --seed 0
         
-        # sky-scan trials (1000 trials, ~8h/trial)
+        # sky-scan trials (1000 trials, ~12h/trial)
         python submit.py submit-do-sky-scan-trials --n-jobs 1000 --seed 0
         
         
