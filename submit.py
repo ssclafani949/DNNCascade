@@ -66,7 +66,7 @@ def setup_ana (state):
 @click.option ('--dec_degs', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
-@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=0.5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_ps_trials (
         state, n_trials, n_jobs, n_sigs, gamma, 
@@ -155,11 +155,11 @@ def submit_do_ps_sens (
 
 
 @cli.command()
-@click.option('--n-trials', default=100, type=int)
+@click.option('--n-trials', default=1000, type=int)
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
-@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=3.5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_correlated_trials_sourcelist(
         state, n_trials, n_jobs,  dry, seed, memory):
@@ -194,7 +194,7 @@ def submit_do_correlated_trials_sourcelist(
 @click.option('--n-jobs', default=10, type=int)
 @click.option('--dry/--nodry', default=False)
 @click.option('--seed', default=0)
-@click.option('--memory', default=7, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=4.5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_correlated_trials_fermibubbles(
         state, n_trials, n_jobs,  dry, seed, memory):
@@ -231,7 +231,7 @@ def submit_do_correlated_trials_fermibubbles(
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option ('-sourcenum', multiple=True, default=None, type=int)
-@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=0.5, type=float, help='Requested memory (GB)')
 @pass_state                                                                                                               
 def submit_do_bkg_trials_sourcelist (
         state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum, memory):
@@ -283,7 +283,7 @@ def submit_do_bkg_trials_sourcelist (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @click.option ('--seed', default=0, type=int)
-@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_gp_trials (
         state, temp, n_trials, n_jobs, n_sigs, 
@@ -428,7 +428,7 @@ def submit_gp_erange (
 
 
 @cli.command ()
-@click.option ('--n-trials', default=10000, type=int)
+@click.option ('--n-trials', default=20000, type=int)
 @click.option ('--n-jobs', default=10, type=int)
 @click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
 @click.option ('--gamma', default=2, type=float)
@@ -437,7 +437,7 @@ def submit_gp_erange (
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--catalog', type=str, default=None)
 @click.option ('--seed', default=0)
-@click.option('--memory', default=2, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=0.5, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_stacking_trials (
         state, n_trials, n_jobs, n_sigs, gamma, cutoff,  poisson,  dry, 
@@ -494,7 +494,7 @@ def submit_do_stacking_trials (
               help='toggle possion weighted signal injection')
 @click.option('--fit/--nofit', default=False,
               help='Use Chi2 Fit or not for the bg trials at each declination')
-@click.option('--memory', default=5, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=3, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_sky_scan_trials (
         state,  n_jobs, cpus, n_sig, gamma, nside, poisson, fit,

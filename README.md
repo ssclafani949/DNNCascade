@@ -6,11 +6,12 @@ Analysis wiki: https://wiki.icecube.wisc.edu/index.php/Cascade_Neutrino_Source_D
 Requirements: 
 
 * cvmfs with python 3 `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
-* csky tag v1.1.6
+* csky tag v1.1.7
 * click (any version should work, but ran with version 7.1.2)
-* numpy (any version should work, but ran with version 1.18.5)
-* pandas (any version should work, but ran with version 1.1.1)
-* matplotlib (ran with version 3.5.1, submitter might need version < 3.1 + MPLBACKEND='AGG')
+* pandas (any version should work, but ran with version 1.1.1 )
+* numpy (any version should work, but ran with version 1.18.5 [dep. of csky])
+* scipy (any version should work, but ran with version 1.7.3 [dep. of csky])
+* matplotlib (ran with version 3.5.1, submitter might need version < 3.1 + MPLBACKEND='AGG'  [dep. of csky])
 * Submitter (https://github.com/ssclafani949/Submitter) 
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
@@ -237,14 +238,14 @@ the next submission should start at `--seed 1000`.
         # bg trials for fermibubbles with no cutoff (50M trials, ~0.08s/trial)
         python submit.py submit-do-gp-trials --n-trials 50000 --n-jobs 1000 --memory 2 --cutoff inf --seed 0 fermibubbles
         
-        # bg trials for stacking catalog unid (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog unid --seed 0
+        # bg trials for stacking catalog unid (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog unid --seed 0
         
-        # bg trials for stacking catalog pwn (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog pwn --seed 0
+        # bg trials for stacking catalog pwn (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog pwn --seed 0
         
-        # bg trials for stacking catalog snr (1M trials, ~1s/trial)
-        python submit.py submit-do-stacking-trials --n-trials 10000 --n-jobs 100 --catalog snr --seed 0
+        # bg trials for stacking catalog snr (2M trials, ~1s/trial)
+        python submit.py submit-do-stacking-trials --n-trials 20000 --n-jobs 100 --catalog snr --seed 0
         
         
         
