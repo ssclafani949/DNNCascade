@@ -454,7 +454,7 @@ def do_gp_trials (
 @click.option('--n-trials', default=1000, type=int)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
-@click.option ('--gamma', default=2.5, type=float)
+@click.option ('--gamma', default=None, type=float)
 @click.option ('--nsigma', default=0, type=int)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
