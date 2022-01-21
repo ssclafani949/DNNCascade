@@ -95,6 +95,9 @@ def unblind_sourcelist(
     """
     Unblind Source List
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     trials = []
     src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.npy')
     sourcelist = np.load(src_list_file, allow_pickle=True)
@@ -129,9 +132,6 @@ def unblind_sourcelist(
             dec=np.radians(source[2]),
             ra=np.radians(source[1]),
             truth=truth)
-
-        if truth:
-            print('UNBLINDING!!!')
 
         trial = tr.get_one_fit(TRUTH=truth, seed=seed, logging=logging)
         assert len(trial) == 3
@@ -206,6 +206,9 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
     """Unblind galactic plane templates kra5, kra50, pi0
     """
 
+    if truth:
+        print('UNBLINDING!!!')
+
     # check if valid template name was passed
     template = template.lower()
     if template not in ['kra5', 'kra50', 'pi0']:
@@ -229,8 +232,6 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
 
     tr = get_tr(template, TRUTH=truth)
     t0 = now()
-    if truth:
-        print('UNBLINDING!!!')
 
     # get background trials
     print('Loading BKG TRIALS')
@@ -271,6 +272,9 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
 def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     """Unblind Fermi bubble templates with cutoffs 50/100/500/inf TeV
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
@@ -290,8 +294,6 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
         return tr
 
     t0 = now()
-    if truth:
-        print('UNBLINDING!!!')
 
     # ---------------------
     # Get background trials
@@ -412,6 +414,9 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
     """
     Unblind all the stacking catalogs
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
@@ -422,8 +427,7 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         conf = cg.get_ps_conf(src=src, gamma=2.0, cutoff_GeV=np.inf)
         tr = cy.get_trial_runner(ana=ana, conf=conf, TRUTH=TRUTH)
         return tr
-    if truth:
-        print('UNBLINDING!!!')
+
     for catalog in ['snr', 'pwn', 'unid']:
         print('Catalog: {}'.format(catalog))
         catalog_file = os.path.join(
@@ -472,6 +476,9 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     Unblind the skyscan and save the true map
     """
 
+    if truth:
+        print('UNBLINDING!!!')
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
@@ -515,8 +522,6 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
                                         max_dec=np.radians(80),
                                         mp_scan_cpus=cpus,
                                         nside=nside, ts_to_p=ts_to_p)
-    if truth:
-        print('UNBLINDING!!!!')
     ss_trial = sstr.get_one_scan(logging=True, seed=seed, TRUTH=truth)
 
     # ------------------------
