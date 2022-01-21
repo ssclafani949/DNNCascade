@@ -84,7 +84,7 @@ def submit_do_ps_trials (
     commands, labels = [], []
     #reqs = '(Machine != "cobol97.private.pa.umd.edu") & (Machine != "cobol94.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
-    dec_degs = dec_degs or np.r_[-81:+81:2]
+    dec_degs = dec_degs or np.r_[-81:+81.01:2]
     for dec_deg in dec_degs:
         for n_sig in n_sigs:
             for i in range (n_jobs):
