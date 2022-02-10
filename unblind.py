@@ -87,14 +87,17 @@ def setup_ana(state):
 
 @cli.command()
 @click.option('--seed', default=None, type=int, help='Trial injection seed')
-@click.option('--TRUTH', default=None, type=bool,
-              help='Must be Set to TRUE to unblind')
+@click.option(
+    '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
 def unblind_sourcelist(
         state, seed, truth,  logging=True):
     """
     Unblind Source List
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     trials = []
     src_list_file = os.path.join(cg.catalog_dir, 'Source_List_DNNC.npy')
     sourcelist = np.load(src_list_file, allow_pickle=True)
@@ -129,9 +132,6 @@ def unblind_sourcelist(
             dec=np.radians(source[2]),
             ra=np.radians(source[1]),
             truth=truth)
-
-        if truth:
-            print('UNBLINDING!!!')
 
         trial = tr.get_one_fit(TRUTH=truth, seed=seed, logging=logging)
         assert len(trial) == 3
@@ -199,12 +199,15 @@ def unblind_sourcelist(
 @click.argument('template')
 @click.option('--seed', default=None, type=int)
 @click.option('--cpus', default=1, type=int)
-@click.option('--TRUTH', default=None, type=bool,
-              help='Must be Set to TRUE to unblind')
+@click.option(
+    '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
 def unblind_gp(state, template, seed, cpus, truth, logging=True):
     """Unblind galactic plane templates kra5, kra50, pi0
     """
+
+    if truth:
+        print('UNBLINDING!!!')
 
     # check if valid template name was passed
     template = template.lower()
@@ -229,8 +232,6 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
 
     tr = get_tr(template, TRUTH=truth)
     t0 = now()
-    if truth:
-        print('UNBLINDING!!!')
 
     # get background trials
     print('Loading BKG TRIALS')
@@ -259,18 +260,21 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
         out_file = '{}/{}_unblinded.npy'.format(
             out_dir, template)
         print ('-> {}'.format(out_file))
-        np.save(out_file, trials)
+        np.save(out_file, trial)
 
 
 @cli.command()
 @click.option('--seed', default=None, type=int)
 @click.option('--cpus', default=1, type=int)
-@click.option('--TRUTH', default=None, type=bool,
-              help='Must be Set to TRUE to unblind')
+@click.option(
+    '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
 def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     """Unblind Fermi bubble templates with cutoffs 50/100/500/inf TeV
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
@@ -290,8 +294,6 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
         return tr
 
     t0 = now()
-    if truth:
-        print('UNBLINDING!!!')
 
     # ---------------------
     # Get background trials
@@ -402,8 +404,8 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
 
 
 @cli.command()
-@click.option('--TRUTH', default=None, type=bool,
-              help='Must be Set to TRUE to unblind')
+@click.option(
+    '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @click.option('-c', '--cutoff', default=np.inf, type=float,
               help='exponential cutoff energy (TeV)')
 @click.option('--seed', default=None, type=int)
@@ -412,6 +414,9 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
     """
     Unblind all the stacking catalogs
     """
+    if truth:
+        print('UNBLINDING!!!')
+
     if seed is None:
         seed = int(time.time() % 2**32)
     random = cy.utils.get_random(seed)
@@ -422,8 +427,7 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         conf = cg.get_ps_conf(src=src, gamma=2.0, cutoff_GeV=np.inf)
         tr = cy.get_trial_runner(ana=ana, conf=conf, TRUTH=TRUTH)
         return tr
-    if truth:
-        print('UNBLINDING!!!')
+
     for catalog in ['snr', 'pwn', 'unid']:
         print('Catalog: {}'.format(catalog))
         catalog_file = os.path.join(
@@ -456,7 +460,7 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
             out_file = '{}/{}_unblinded.npy'.format(
                 out_dir, catalog)
             print ('-> {}'.format(out_file))
-            np.save(out_file, trials)
+            np.save(out_file, trial)
 
 
 @cli.command()
@@ -464,13 +468,16 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
 @click.option('--cpus', default=1, type=int)
 @click.option('--seed', default=None, type=int)
 @click.option('--fit/--nofit', default=False, help='Chi2 Fit or Not')
-@click.option('--TRUTH', default=None, type=bool,
-              help='Must be Set to TRUE to unblind')
+@click.option(
+    '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
 def unblind_skyscan(state, nside, cpus, seed, fit, truth):
     """
     Unblind the skyscan and save the true map
     """
+
+    if truth:
+        print('UNBLINDING!!!')
 
     if seed is None:
         seed = int(time.time() % 2**32)
@@ -515,8 +522,6 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
                                         max_dec=np.radians(80),
                                         mp_scan_cpus=cpus,
                                         nside=nside, ts_to_p=ts_to_p)
-    if truth:
-        print('UNBLINDING!!!!')
     ss_trial = sstr.get_one_scan(logging=True, seed=seed, TRUTH=truth)
 
     # ------------------------

@@ -454,7 +454,7 @@ def do_gp_trials (
 @click.option('--n-trials', default=1000, type=int)
 @click.option ('--seed', default=None, type=int)
 @click.option ('--cpus', default=1, type=int)
-@click.option ('--gamma', default=2.5, type=float)
+@click.option ('--gamma', default=None, type=float)
 @click.option ('--nsigma', default=0, type=int)
 @click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
 @pass_state
@@ -659,9 +659,10 @@ def collect_gp_trials (state, inputdir):
 @click.option ('--nsigma', default=None, type=float, help='Number of sigma to find')
 @click.option ('--fit/--nofit', default=False, help = 'Fit the bkg dist to a chi2 or not?')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
-@click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
+@click.option('--inputdir', default=None, type=str, help='option to define an input directory outside of default')
+@click.option('--UL/--noUL' , default=False, help='Read in Result and calculate UL to TS')
 @pass_state
-def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
+def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir, ul):
     """
     Calculate the Sensitivity or discovery potential once bg and sig files are collected
     Does all galactic plane templates
@@ -703,7 +704,28 @@ def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
                 ts = cy.dists.TSD(b).isf_nsigma(nsigma)
         else:
             #print('Getting sensitivity')
-            ts = cy.dists.TSD(b).median()
+            if ul:
+                print('Loading Results...')
+                results_dir = '{}/gp/results/{}'.format(
+                    state.base_dir, template)
+                results_file = '{}/{}_unblinded.npy'.format(                 
+                    results_dir, template)
+                unblinded_results = np.load(results_file, allow_pickle=True)
+                if template == 'fermibubbles':
+                    if cutoff == 50:
+                        loc = 0
+                    elif cutoff == 100:
+                        loc = 1
+                    elif cutoff == 500:
+                        loc = 2
+                    elif cutoff == np.inf:
+                        loc = 3
+                    ts = unblinded_results[loc][0]
+                else:
+                    ts = unblinded_results[0]
+                print('Calculating UL for ts={}'.format(ts))
+            else:
+                ts = cy.dists.TSD(b).median()
         if verbose:
             print(ts)
 
@@ -730,7 +752,7 @@ def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
         templates = ['fermibubbles', 'pi0', 'kra5', 'kra50']
     for template in templates:
         if inputdir:
-            indir = inputdir
+            indir = inputdir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
         else:
             indir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
         base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(state.ana_name, template)
@@ -747,7 +769,10 @@ def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
             if nsigma:
                 np.save(base_dir + '/{}_dp_{}sigma_flux.npy'.format(template, nsigma), flux)
             else:
-                np.save(base_dir + '/{}_sens_flux.npy'.format(template), flux)
+                if ul:
+                    np.save(base_dir + '/{}_90UL_flux.npy'.format(template), flux)
+                else:
+                    np.save(base_dir + '/{}_sens_flux.npy'.format(template), flux)
 
         else:
             f = find_n_sig_gp(template, nsigma=nsigma,beta =beta, cutoff=cutoff, verbose=verbose)
@@ -755,7 +780,10 @@ def find_gp_n_sig(state, template, nsigma, fit, verbose, inputdir):
             if nsigma:
                 np.save(base_dir + '/{}_dp_{}sigma_flux.npy'.format(template, nsigma), f)
             else:
-                np.save(base_dir + '/{}_sens_flux.npy'.format(template), f)
+                if ul:
+                    np.save(base_dir + '/{}_90UL_flux.npy'.format(template), f)
+                else:
+                    np.save(base_dir + '/{}_sens_flux.npy'.format(template), f)
 
 
 @cli.command()
@@ -953,8 +981,9 @@ def collect_stacking_sig (state, inputdir):
 @click.option ('--fit/--nofit', default=False, help='Use chi2fit')
 @click.option('--inputdir', default=None, type=str, help='Option to Define an input directory outside of default')
 @click.option ('--verbose/--noverbose', default=False, help = 'Noisy Output')
+@click.option('--UL/--noUL' , default=False, help='Read in Result and calculate UL to TS')
 @pass_state
-def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
+def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose, ul):
     """
     Calculate the Sensitvity or discovery potential once bg and sig files are collected
     Does all stacking catalogs
@@ -962,7 +991,7 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
     cutoff = None
     ana = state.ana
 
-    def find_n_sig_cat(src, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False):
+    def find_n_sig_cat(src, gamma=2.0, beta=0.9, nsigma=None, cutoff=None, verbose=False, unblinded_results=None):
         # get signal trials, background distribution, and trial runner
         if cutoff == None:
             cutoff = np.inf
@@ -987,7 +1016,11 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
                 ts = cy.dists.TSD(b).isf_nsigma(nsigma)
         else:
             #print('Getting sensitivity')
-            ts = cy.dists.Chi2TSD(b).median()
+            if ul:
+                print(unblinded_results)
+                ts = unblinded_results[0] 
+            else:
+                ts = cy.dists.TSD(b).median()
         if verbose:
             print(ts)
 
@@ -1009,7 +1042,7 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
     cats = ['snr', 'pwn', 'unid']
     for cat in cats:
         if inputdir:
-            indir = iputdir
+            indir = inputdir + '/stacking'
         else:
             indir = state.base_dir + '/stacking/'
         base_dir = state.base_dir + '/stacking/'
@@ -1019,18 +1052,31 @@ def find_stacking_n_sig(state, nsigma, fit, inputdir, verbose):
         bg = np.load (bgfile, allow_pickle=True)
         print('CATALOG: {}'.format(cat))
         catalog_file = os.path.join(
-            cg.catalog_dir, '{}_ESTES_12.pickle'.format(catalog))
+            cg.catalog_dir, '{}_ESTES_12.pickle'.format(cat))
         srcs = np.load(catalog_file, allow_pickle=True)
         src = cy.utils.Sources(ra = srcs['ra_deg'], dec=srcs['dec_deg'], deg=True)
+        if ul: 
+            print('Loading Results...')
+            results_dir = '{}/stacking/results/{}'.format(
+                state.base_dir, cat)
+            results_file = '{}/{}_unblinded.npy'.format(                 
+                results_dir, cat)
+            unblinded_results = np.load(results_file, allow_pickle=True)
+            print(unblinded_results)
+        else:
+            unblinded_results=None
         for gamma in sig['gamma'].keys():
             print ('Gamma: {}'.format(gamma))
-            f = find_n_sig_cat(src, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=verbose)
+            f = find_n_sig_cat(src, gamma=gamma, beta=beta, nsigma=nsigma, cutoff=cutoff, verbose=verbose, unblinded_results=unblinded_results)
             print('Sensitvity Flux: {:.8}'.format(f))     
             fluxs.append(f)
             if nsigma:
                 np.save(base_dir + '/stacking_{}_dp_{}sigma_flux_E{}.npy'.format(cat, nsigma, int(gamma * 100)), fluxs)
             else:
-                np.save(base_dir + '/stacking_{}_sens_flux_E{}.npy'.format(cat, int(gamma * 100)), fluxs)
+                if ul:
+                    np.save(base_dir + '/stacking_{}_90UL_flux_E{}.npy'.format(cat, int(gamma * 100)), fluxs)
+                else:
+                    np.save(base_dir + '/stacking_{}_sens_flux_E{}.npy'.format(cat, int(gamma * 100)), fluxs)
 
 
 @cli.command()
