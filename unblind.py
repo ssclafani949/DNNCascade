@@ -242,18 +242,19 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
     bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
 
     trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
+    print(tr.to_E2dNdE(trial[1], unit=1e3, E0=100))
     pval = bg.sf(trial[0], fit=False)
     pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
     trial.append(pval)
     trial.append(pval_nsigma)
-
+    print(tr.to_E2dNdE(trial[1], E0=100, unit=1e3))
     # print results to console
     utils.print_result(
         title='Results for GP template: {}'.format(template),
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
     )
     flush()
-
+    print(trial)
     if truth:
         out_dir = cy.utils.ensure_dir('{}/gp/results/{}'.format(
             state.base_dir, template))
@@ -446,14 +447,14 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
         trial.append(pval)
         trial.append(pval_nsigma)
-
+        print(trial)
         # print results to console
         utils.print_result(
             title='Results for stacking catalog: {}'.format(catalog),
             n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
         )
         flush()
-
+        
         if truth:
             out_dir = cy.utils.ensure_dir('{}/stacking/results/{}/'.format(
                 state.base_dir, catalog))
