@@ -66,7 +66,7 @@ def setup_ana (state):
 @click.option ('--dec_degs', 'dec_degs', multiple=True, type=float, default=())
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
-@click.option('--memory', default=0.5, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=1, type=float, help='Requested memory (GB)')
 @pass_state
 def submit_do_ps_trials (
         state, n_trials, n_jobs, n_sigs, gamma, 
@@ -82,6 +82,7 @@ def submit_do_ps_trials (
     sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
+    reqs = '(Machine != "node128.icecube.wisc.edu")'    
     #reqs = '(Machine != "cobol97.private.pa.umd.edu") & (Machine != "cobol94.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
     dec_degs = dec_degs or np.r_[-81:+81.01:2]
@@ -106,7 +107,7 @@ def submit_do_ps_trials (
     if 'condor00' in hostname:
         sub.submit_condor00 (commands, labels) #, reqs=reqs)
     else:
-        sub.submit_npx4 (commands, labels)
+        sub.submit_npx4 (commands, labels, reqs = reqs)
 
 @cli.command ()
 @click.option ('--n-trials', default=10000, type=int)
@@ -301,7 +302,8 @@ def submit_do_gp_trials (
     sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
     commands, labels = [], []
-    reqs = '(Machine != "cobol93.private.pa.umd.edu")'
+    reqs = '(Machine != "node128.icecube.wisc.edu")'    
+    #reqs = '(Machine != "cobol93.private.pa.umd.edu")'
     trial_script = os.path.abspath('trials.py')
     print(n_sigs)
     for n_sig in n_sigs:

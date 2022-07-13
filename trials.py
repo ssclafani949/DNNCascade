@@ -31,7 +31,7 @@ class State (object):
                 specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             elif 'systematics' in base_dir:
                 specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr_systematics_full
-            ana = cy.get_analysis(repo, 'version-001-p00', specs, dir = base_dir)
+            ana = cy.get_analysis(repo, 'version-001-p01', specs, dir = base_dir)
             if self.save:
                 cy.utils.ensure_dir (self.ana_dir)
                 ana.save (self.ana_dir)

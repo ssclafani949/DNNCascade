@@ -42,7 +42,7 @@ class State (object):
                 specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             elif 'systematics' in base_dir:
                 specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr_systematics
-            ana = cy.get_analysis(repo, 'version-001-p00', specs, dir=base_dir)
+            ana = cy.get_analysis(repo, 'version-001-p01', specs, dir=base_dir)
             if self.save:
                 cy.utils.ensure_dir(self.ana_dir)
                 ana.save(self.ana_dir)
@@ -87,11 +87,12 @@ def setup_ana(state):
 
 @cli.command()
 @click.option('--seed', default=None, type=int, help='Trial injection seed')
+@click.option('--bkg_dir', default=None, type=str)
 @click.option(
     '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
 def unblind_sourcelist(
-        state, seed, truth,  logging=True):
+        state, seed, bkg_dir, truth,  logging=True):
     """
     Unblind Source List
     """
@@ -108,7 +109,10 @@ def unblind_sourcelist(
 
     # load correlated MultiTrialRunner background trials
     print('Loading correlated background trials...')
-    base_dir = os.path.join(state.base_dir, 'ps/correlated_trials')
+    if bkg_dir:
+        base_dir = os.path.join(bkg_dir, 'ps/correlated_trials')
+    else:
+        base_dir = os.path.join(state.base_dir, 'ps/correlated_trials')
     bgfile_corr = '{}/correlated_bg.npy'.format(base_dir)
     trials_corr = np.load(bgfile_corr, allow_pickle=True)
     bg_corr = cy.dists.TSD(trials_corr)
@@ -198,11 +202,12 @@ def unblind_sourcelist(
 @cli.command()
 @click.argument('template')
 @click.option('--seed', default=None, type=int)
+@click.option('--bkg_dir', default=None, type=str)
 @click.option('--cpus', default=1, type=int)
 @click.option(
     '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
-def unblind_gp(state, template, seed, cpus, truth, logging=True):
+def unblind_gp(state, template, seed, bkg_dir, cpus, truth, logging=True):
     """Unblind galactic plane templates kra5, kra50, pi0
     """
 
@@ -235,8 +240,12 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
 
     # get background trials
     print('Loading BKG TRIALS')
-    base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(
-        state.ana_name, template)
+    if bkg_dir:
+        base_dir = bkg_dir + '/gp/trials/{}/{}/'.format(
+            state.ana_name, template)
+    else:
+        base_dir = state.base_dir + '/gp/trials/{}/{}/'.format(
+            state.ana_name, template)
     sigfile = '{}/trials.dict'.format(base_dir)
     sig = np.load(sigfile, allow_pickle=True)
     bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
@@ -247,7 +256,11 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
     pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
     trial.append(pval)
     trial.append(pval_nsigma)
-    print(tr.to_E2dNdE(trial[1], E0=100, unit=1e3))
+
+    print('E2dNdE: {}'.format(    tr.to_E2dNdE(trial[1], E0 = 100, unit = 1e3)))
+    print('dNdE: {}'.format(    tr.to_dNdE(trial[1], E0 = 100, unit = 1e3)))
+    print('dNdE: {}'.format(    tr.to_dNdE(trial[1], E0 = 1e5, unit = 1)))
+
     # print results to console
     utils.print_result(
         title='Results for GP template: {}'.format(template),
@@ -266,11 +279,12 @@ def unblind_gp(state, template, seed, cpus, truth, logging=True):
 
 @cli.command()
 @click.option('--seed', default=None, type=int)
+@click.option('--bkg_dir', default=None, type=str)
 @click.option('--cpus', default=1, type=int)
 @click.option(
     '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
-def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
+def unblind_fermibubbles(state, seed, bkg_dir, cpus, truth, logging=True):
     """Unblind Fermi bubble templates with cutoffs 50/100/500/inf TeV
     """
     if truth:
@@ -301,8 +315,12 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     # ---------------------
     # load correlated MultiTrialRunner background trials
     print('Loading correlated background trials...')
-    base_dir = state.base_dir + '/gp/trials/{}/fermibubbles/'.format(
-        state.ana_name)
+    if bkg_dir:
+        base_dir = bkg_dir + '/gp/trials/{}/fermibubbles/'.format(
+            state.ana_name)
+    else:
+        base_dir = state.base_dir + '/gp/trials/{}/fermibubbles/'.format(
+            state.ana_name)
     bgfile_corr = '{}/correlated_trials/correlated_bg.npy'.format(base_dir)
     trials_corr = np.load(bgfile_corr, allow_pickle=True)
     bg_corr = cy.dists.TSD(trials_corr)
@@ -409,9 +427,10 @@ def unblind_fermibubbles(state, seed, cpus, truth, logging=True):
     '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @click.option('-c', '--cutoff', default=np.inf, type=float,
               help='exponential cutoff energy (TeV)')
+@click.option('--bkg_dir', default=None, type=str)
 @click.option('--seed', default=None, type=int)
 @pass_state
-def unblind_stacking(state, truth, cutoff, seed, logging=True):
+def unblind_stacking(state, truth,  bkg_dir, cutoff, seed, logging=True):
     """
     Unblind all the stacking catalogs
     """
@@ -438,7 +457,10 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
         tr = get_tr(src, TRUTH=truth)
 
         print('Loading BKG TRIALS')
-        base_dir = state.base_dir + '/stacking/'
+        if bkg_dir:
+            base_dir = bkg_dir + '/stacking/'
+        else:
+            base_dir = state.base_dir + '/stacking/'
         bgfile = '{}/{}_bg.dict'.format(base_dir, catalog)
         b = np.load(bgfile, allow_pickle=True)
         bg = cy.dists.TSD(b)
@@ -469,10 +491,11 @@ def unblind_stacking(state, truth, cutoff, seed, logging=True):
 @click.option('--cpus', default=1, type=int)
 @click.option('--seed', default=None, type=int)
 @click.option('--fit/--nofit', default=False, help='Chi2 Fit or Not')
+@click.option('--bkg_dir', default=None, type=str)
 @click.option(
     '--TRUTH/--noTRUTH', default=False, help='Must pass "--TRUTH" to unblind')
 @pass_state
-def unblind_skyscan(state, nside, cpus, seed, fit, truth):
+def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     """
     Unblind the skyscan and save the true map
     """
@@ -498,7 +521,10 @@ def unblind_skyscan(state, nside, cpus, seed, fit, truth):
 
     # load correlated sky scan trials for trial-correction
     print('Loading correlated sky scan trials...')
-    trials_corr_file = state.base_dir + '/skyscan/trials/DNNC/sky_scan_bg.npy'
+    if bkg_dir:
+        trials_corr_file = bkg_dir + '/skyscan/trials/DNNC/sky_scan_bg.npy'
+    else:
+        trials_corr_file = state.base_dir + '/skyscan/trials/DNNC/sky_scan_bg.npy'
     trials_corr_dict = np.load(trials_corr_file, allow_pickle=True)
     fit_str = 'fit' if fit else 'nofit'
     trials_corr = trials_corr_dict['nside'][nside]['bg'][fit_str]
