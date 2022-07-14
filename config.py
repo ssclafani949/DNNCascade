@@ -10,7 +10,7 @@ import utils
 hostname = socket.gethostname()
 username = getpass.getuser()
 print('Running as User: {} on Hostname: {}'.format(username, hostname))
-job_base = 'baseline_unblind_v1.0.0'
+job_base = 'baseline_unblind_v1.0.1'
 #job_base = 'systematics_full'
 if 'condor00' in hostname or 'cobol' in hostname or 'gpu' in hostname:
     repo = cy.selections.Repository(
