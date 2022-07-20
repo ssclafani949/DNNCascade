@@ -586,7 +586,7 @@ def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     utils.print_result(
         title='Results for northern sky',
         n_trials=len(bg_corr_north),
-        trial=ss_trial[:, ipix_max_north],
+        trial=ss_trial[1:, ipix_max_north],
         pval=pval_north,
         pval_nsigma=pval_north_nsigma,
         add_items={
@@ -602,7 +602,7 @@ def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     utils.print_result(
         title='Results for southern sky',
         n_trials=len(bg_corr_south),
-        trial=ss_trial[:, ipix_max_south],
+        trial=ss_trial[1:, ipix_max_south],
         pval=pval_south,
         pval_nsigma=pval_south_nsigma,
         add_items={
