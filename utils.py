@@ -23,7 +23,9 @@ def print_result(title, n_trials, trial, pval, pval_nsigma, add_items={}):
     n_trials : int
         The number of background trials on which the p-values are based on.
     trial : tuple
-        The trial result.
+        The trial result, e.g. [TS, ns, ...].
+        Warning: this function expects inddex 0 to be the test-statistic value
+        and index 1 to be the number of fitted events ns.
     pval : float
         The p-value for the given trial.
     pval_nsigma : float

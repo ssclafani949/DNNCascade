@@ -38,10 +38,12 @@ class State (object):
     def ana(self):
         if self._ana is None:
             repo.clear_cache()
-            if 'baseline' in base_dir:
-                specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
-            elif 'systematics' in base_dir:
+            if 'systematics' in self.base_dir:
+                print('Using systematics MC to build analysis!')
                 specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr_systematics
+            else:
+                print('Using baseline MC to build analysis!')
+                specs = cy.selections.DNNCascadeDataSpecs.DNNC_10yr
             ana = cy.get_analysis(repo, 'version-001-p01', specs, dir=base_dir)
             if self.save:
                 cy.utils.ensure_dir(self.ana_dir)
@@ -594,7 +596,7 @@ def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     utils.print_result(
         title='Results for northern sky',
         n_trials=len(bg_corr_north),
-        trial=ss_trial[:, ipix_max_north],
+        trial=ss_trial[1:, ipix_max_north],
         pval=pval_north,
         pval_nsigma=pval_north_nsigma,
         add_items={
@@ -610,7 +612,7 @@ def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     utils.print_result(
         title='Results for southern sky',
         n_trials=len(bg_corr_south),
-        trial=ss_trial[:, ipix_max_south],
+        trial=ss_trial[1:, ipix_max_south],
         pval=pval_south,
         pval_nsigma=pval_south_nsigma,
         add_items={
