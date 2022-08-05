@@ -253,6 +253,7 @@ def unblind_gp(state, template, seed, bkg_dir, cpus, truth, logging=True):
     bg = cy.dists.TSD(sig['poisson']['nsig'][0.0]['ts'])
 
     trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
+    print(tr.to_E2dNdE(trial[1], unit=1e3, E0=100))
     pval = bg.sf(trial[0], fit=False)
     pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
     trial.append(pval)
@@ -262,14 +263,13 @@ def unblind_gp(state, template, seed, bkg_dir, cpus, truth, logging=True):
     print('dNdE: {}'.format(    tr.to_dNdE(trial[1], E0 = 100, unit = 1e3)))
     print('dNdE: {}'.format(    tr.to_dNdE(trial[1], E0 = 1e5, unit = 1)))
 
-
     # print results to console
     utils.print_result(
         title='Results for GP template: {}'.format(template),
         n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
     )
     flush()
-
+    print(trial)
     if truth:
         out_dir = cy.utils.ensure_dir('{}/gp/results/{}'.format(
             state.base_dir, template))
@@ -367,8 +367,9 @@ def unblind_fermibubbles(state, seed, bkg_dir, cpus, truth, logging=True):
         # print result
         msg = (
             '    ts: {:5.2f} | ns: {:6.2f} | n-sigma: {:5.2f} '
+            '| pval {:.5f} '
             '| cutoff: {:5.1f} TeV | n-trials: {:7d}'
-        ).format(*trial[:2], pval_nsigma, cutoff, len(bgs[i]))
+        ).format(*trial[:2], pval_nsigma, pval,  cutoff, len(bgs[i]))
 
         if pval_nsigma < 3.:
             result_msgs.append(msg)
@@ -469,16 +470,17 @@ def unblind_stacking(state, truth,  bkg_dir, cutoff, seed, logging=True):
         trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
         pval = bg.sf(trial[0], fit=False)
         pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
+        trial.append(tr.to_E2dNdE(trial[1], E0=100, unit=1e3))
         trial.append(pval)
         trial.append(pval_nsigma)
-
+        print(trial)
         # print results to console
         utils.print_result(
             title='Results for stacking catalog: {}'.format(catalog),
             n_trials=len(bg), trial=trial, pval=pval, pval_nsigma=pval_nsigma,
         )
         flush()
-
+        
         if truth:
             out_dir = cy.utils.ensure_dir('{}/stacking/results/{}/'.format(
                 state.base_dir, catalog))
@@ -514,10 +516,16 @@ def unblind_skyscan(state, nside, cpus, seed, bkg_dir, fit, truth):
     print('Loading bg trials at each declination...')
     base_dir = state.base_dir + '/ps/trials/DNNC'
     if fit:
-        bgfile = '{}/bg_chi2.dict'.format(base_dir)
+        if bkg_dir:
+            bgfile = '{}/bg_chi2.dict'.format(bkg_dir)
+        else:
+            bgfile = '{}/bg_chi2.dict'.format(base_dir)
         bgs = np.load(bgfile, allow_pickle=True)['dec']
     else:
-        bgfile = '{}/bg.dict'.format(base_dir)
+        if bkg_dir:
+            bgfile = '{}/bg.dict'.format(bkg_dir)
+        else:
+            bgfile = '{}/bg.dict'.format(base_dir)
         bg_trials = np.load(bgfile, allow_pickle=True)['dec']
         bgs = {key: cy.dists.TSD(trials) for key, trials in bg_trials.items()}
 

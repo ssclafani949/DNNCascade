@@ -226,20 +226,21 @@ def submit_do_correlated_trials_fermibubbles(
 
 
 @cli.command ()
+@click.option ('-n', '--n-sig', 'n_sigs', multiple=True, default=[0], type=float)
 @click.option ('--n-jobs', default=10, type=int)
 @click.option ('--n-trials', default=10000, type=int)
 @click.option ('--gamma', default=2, type=float)
 @click.option ('--dry/--nodry', default=False)
 @click.option ('--seed', default=0)
 @click.option ('-sourcenum', multiple=True, default=None, type=int)
-@click.option('--memory', default=0.5, type=float, help='Requested memory (GB)')
+@click.option('--memory', default=1, type=float, help='Requested memory (GB)')
 @pass_state                                                                                                               
-def submit_do_bkg_trials_sourcelist (
-        state, n_jobs, n_trials,  gamma,  dry, seed, sourcenum, memory):
+def submit_do_trials_sourcelist (
+        state, n_sigs, n_jobs, n_trials,  gamma,  dry, seed, sourcenum, memory):
     ana_name = state.ana_name
     T = time.time ()
     job_basedir = state.job_basedir 
-    job_dir = '{}/{}/correlated_trials_sourcelist_bkg/T_{:17.6f}'.format(
+    job_dir = '{}/{}/UL_trials_sourcelist/T_{:17.6f}'.format(
         job_basedir, ana_name,  T)
     sub = Submitter (job_dir=job_dir, memory=memory,
         max_jobs=1000, config = submit_cfg_file)
@@ -252,22 +253,24 @@ def submit_do_bkg_trials_sourcelist (
         nsources = 109
         sources = [int(source) for source in range(nsources)]
     print('Submitting For Sources:')
-    print(sources)   
+    print(sources)  
+    print(n_sigs) 
     for source in sources:
-        for i in range (n_jobs):
-            s = i + seed
-            fmt = '{} do-bkg-trials-sourcelist  --n-trials {}' \
-                                ' --sourcenum {}' \
-                                ' --seed={}'
-            command = fmt.format ( trial_script,  n_trials,
-                                   source, s)
-            fmt = 'csky_sens_{:07d}_' \
-                    'source_{}_seed_{:04d}'
-            label = fmt.format (
-                    n_trials, 
-                    source, s)
-            commands.append (command)
-            labels.append (label)
+        for n_sig in n_sigs:
+            for i in range (n_jobs):
+                s = i + seed
+                fmt = '{} do-trials-sourcelist  --n-trials {}' \
+                        ' --n-sig {} --sourcenum {} --gamma {}'\
+                                    ' --seed={}'
+                command = fmt.format ( trial_script,  n_trials,
+                                       n_sig, source, gamma, s)
+                fmt = 'csky_sens_{:07d}_' \
+                        'source_{}_ns_{:.2}_g_{}_seed_{:04d}'
+                label = fmt.format (
+                        n_trials, 
+                        source, n_sig, gamma, s)
+                commands.append (command)
+                labels.append (label)
     sub.dry = dry
     if 'condor00' in hostname:
         sub.submit_condor00 (commands, labels)
@@ -394,7 +397,8 @@ def submit_gp_erange (
     commands, labels = [], []
     this_script = os.path.abspath (__file__)
     trial_script = os.path.abspath('trials.py')
-    emins = np.round(np.linspace(500,10000, 21 ), 2)
+    emins = np.round(np.logspace(2.7,3.3, 10 ), 2)
+    #emins = np.round(np.linspace(500,10000, 21 ), 2)
     emaxs = np.round(np.logspace(4.6,8,21), 2)
     for emin in emins:
         emax = 1e8
@@ -408,6 +412,7 @@ def submit_gp_erange (
         label = fmt.format (n_trials, template,  s, emin, emax)
         commands.append (command)
         labels.append (label)
+    '''
     for emax in emaxs:
         emin = 500 
         s =  seed
@@ -420,6 +425,7 @@ def submit_gp_erange (
         label = fmt.format (n_trials, template,  s, emin, emax)
         commands.append (command)
         labels.append (label)
+    '''
     sub.dry = dry
     print(hostname)
     if 'condor00' in hostname:

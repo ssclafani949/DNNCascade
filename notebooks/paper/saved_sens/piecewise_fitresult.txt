@@ -1,0 +1,26 @@
+energy given in units of GeV
+
+energy flux (E^2 x particle flux) given in units of
+10^(-8) x GeV / (cm^2 sr s)
+
+energy flux is constant within each segment i
+defined by [energy_lower[i], energy_upper[i]]
+
+segment i: flux within range [flux_lower[i], flux_upper[i]]
+is consistent with the data at 68% CL
+-----------------------------------------------------------
+
+energy_central energy_lower energy_upper flux_central flux_lower flux_upper
+6813 4642 10000 3.18e+00 1.05e+00 5.43e+00
+14678 10000 21544 3.37e+00 2.28e+00 4.28e+00
+31623 21544 46416 4.42e+00 3.64e+00 5.36e+00
+68129 46416 100000 1.93e+00 1.41e+00 2.61e+00
+146780 100000 215443 2.00e+00 1.50e+00 2.59e+00
+316228 215443 464159 0.00e+00 0.00e+00 1.73e-01
+681292 464159 1000000 5.52e-02 0.00e+00 4.76e-01
+1467799 1000000 2154435 1.09e+00 5.40e-01 1.80e+00
+3162278 2154435 4641589 0.00e+00 0.00e+00 4.89e-01
+6812921 4641589 10000000 0.00e+00 0.00e+00 1.44e-01
+14677993 10000000 21544347 0.00e+00 0.00e+00 7.68e-01
+31622777 21544347 46415888 0.00e+00 0.00e+00 1.36e+00
+68129207 46415888 100000000 0.00e+00 0.00e+00 2.63e+00

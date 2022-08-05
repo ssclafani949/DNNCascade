@@ -1242,6 +1242,92 @@ def recalculate_sky_scan_trials(
 
 
 @cli.command()
+@click.option('--nside', default=128, type=int)
+@click.option('--cpus', default=1, type=int)
+@click.option('--seed', default=None, type=int)
+@click.option('--poisson/--nopoisson', default=True,
+              help='toggle possion weighted signal injection')
+@click.option('--gamma', default=2.7, type=float,
+              help='Gamma for signal injection.')
+@click.option('--fit/--nofit', default=False,
+              help='Use Chi2 Fit or not for the bg trials at each declination')
+@pass_state
+def do_sky_scan_weaksources(
+        state, poisson, n ,  nside, n_sig, cpus, seed, gamma, fit):
+    """
+    Scan each point in the sky in a grid of pixels
+    """
+
+    if seed is None:
+        seed = int(time.time() % 2**32)
+    random = cy.utils.get_random(seed)
+    print('Seed: {}'.format(seed))
+    template = np.load('/data/ana/analyses/NuSources/2021_DNNCascade_analyses/templates/Fermi-LAT_pi0_map.npy',allow_pickle=True)
+    def get_sources(template, N_src):
+        idx = np.random.choice(len(template), N_src, p=template/sum(template))
+        theta, phi = hp.pix2ang(nside=128, ipix=idx)
+        ra = np.rad2deg(phi)
+        dec = np.rad2deg(np.pi/2 - theta)
+        return ra, dec
+    
+    N_src = n 
+    ras, decs = get_sources(template, N_src)
+    inj_src = cy.utils.sources(ras, decs, deg=True)
+    base_dir = state.base_dir + '/ps/trials/DNNC'
+    n_inj_pi0 = 750
+    if fit:
+        bgfile = '{}/bg_chi2.dict'.format(base_dir)
+        bgs = np.load(bgfile, allow_pickle=True)['dec']
+    else:
+        bgfile = '{}/bg.dict'.format(base_dir)
+        bg_trials = np.load(bgfile, allow_pickle=True)['dec']
+        bgs = {key: cy.dists.TSD(trials) for key, trials in bg_trials.items()}
+
+    def ts_to_p(dec, ts):
+        return cy.dists.ts_to_p(bgs, np.degrees(dec), ts, fit=fit)
+
+    t0 = now()
+    ana = state.ana
+    conf = cg.get_ps_conf(src=None, gamma=gamma)
+    conf.pop('src')
+    conf.update({
+        'ana': ana,
+        'mp_cpus': cpus,
+        'extra_keep': ['energy'],
+    })
+
+    inj_src = cy.utils.sources(ra=0, dec=dec_deg, deg=True)
+    inj_conf = {
+        'src': inj_src,
+        'flux': cy.hyp.PowerLawFlux(gamma),
+    }
+
+    sstr = cy.get_sky_scan_trial_runner(conf=conf, inj_conf=inj_conf,
+                                        min_dec=np.radians(-80),
+                                        max_dec=np.radians(80),
+                                        mp_scan_cpus=cpus,
+                                        nside=nside, ts_to_p=ts_to_p)
+    print('Doing one Scan with nsig = {}'.format(n_sig))
+    trials = sstr.get_one_scan(n_sig, poisson=poisson, logging=True, seed=seed)
+
+    base_out = '{}/skyscan/trials/{}/nside/{:04d}'.format(
+        state.base_dir, state.ana_name, nside)
+    if n_sig:
+        out_dir = cy.utils.ensure_dir(
+            '{}/{}/{}/gamma/{:.3f}/dec/{:+08.3f}/nsig/{:08.3f}'.format(
+                base_out,
+                'poisson' if poisson else 'nonpoisson',
+                'fit' if fit else 'nofit',
+                gamma,  dec_deg, n_sig))
+    else:
+        out_dir = cy.utils.ensure_dir('{}/bg/{}'.format(
+            base_out, 'fit' if fit else 'nofit'))
+    out_file = '{}/scan_seed_{:010d}.npy'.format(out_dir,  seed)
+    print ('-> {}'.format(out_file))
+    np.save(out_file, trials)
+
+
+@cli.command()
 @pass_state
 def collect_sky_scan_trials_bg(state):
     """
@@ -1266,14 +1352,19 @@ def collect_sky_scan_trials_bg(state):
 
 @cli.command()
 @click.option ('--sourcenum', default=1, type=int, help='what source in the list')
+@click.option ('--n-sig', default=0, type=float, help='number of events to inject')
 @click.option ('--n-trials', default=1000, type=int, help='number of trials to run')
-@click.option ('--cpus', default=1, type=int, help='ncpus')
+@click.option ('--poisson/--nopoisson', default=True, 
+    help = 'toggle possion weighted signal injection')
+@click.option ('--gamma', default=2.0, type=float, help='Spectral Index to inject')
+@click.option ('-c', '--cutoff', default=np.inf, type=float, help='exponential cutoff energy (TeV)')      
+@click.option ('--cpus', default=1, type=int, help='Number of CPUs to use')
 @click.option ('--seed', default=None, type=int, help='Trial injection seed')
 @pass_state
-def do_bkg_trials_sourcelist (
-        state, sourcenum, n_trials, cpus, seed, logging=True):
+def do_trials_sourcelist (
+        state, sourcenum, n_sig, n_trials,  poisson, gamma, cutoff, cpus, seed, logging=True):
     """
-    Do Background Trials at the exact declination of each source.
+    Do trials at the exact declination of each source.
     Used as an input for the MTR correlated trials to correctly calculate
     pre-trial pvalues
     """
@@ -1290,7 +1381,7 @@ def do_bkg_trials_sourcelist (
     ana = state.ana
     def get_tr(dec, ra, cpus=cpus):
         src = cy.utils.sources(ra=ra, dec=dec, deg=True)
-        conf = cg.get_ps_conf(src=src, gamma=2.0)
+        conf = cg.get_ps_conf(src=src, gamma=gamma)
         tr = cy.get_trial_runner(ana=ana, conf= conf, mp_cpus=cpus )
         return tr
     dec = decs[sourcenum]
@@ -1302,15 +1393,28 @@ def do_bkg_trials_sourcelist (
     print('Doing Background Trials for Source {} : {}'.format(sourcenum, name))
     print('DEC {} : RA {}'.format(dec, ra))
     print('Seed: {}'.format(seed))
-    trials = tr.get_many_fits(n_trials, seed=seed)
+    trials = tr.get_many_fits(n_trials, n_sig= n_sig, seed=seed, poisson=poisson)
     t1 = now ()
     flush ()
-    out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/bg/source_{}'.format (
-        state.base_dir, sourcenum))
-    out_file = '{}/bkg_trials_{}_seed_{}.npy'.format (
-        out_dir, n_trials, seed)
+    if n_sig == 0:
+        out_dir = cy.utils.ensure_dir ('{}/ps/correlated_trials/bg/source_{}'.format (
+            state.base_dir, sourcenum))
+        out_file = '{}/bkg_trials_{}_seed_{}.npy'.format (
+            out_dir, n_trials, seed)
+    else:
+        out_dir = cy.utils.ensure_dir('{}/ps/correlated_trials/{}/source_{}/gamma/{:.3f}/cutoff_TeV/{:.0f}/nsig/{:08.3f}'.format (
+                state.base_dir,
+                'poisson' if poisson else 'nonpoisson',
+                sourcenum,
+                 gamma, cutoff,  n_sig))
+        out_file = '{}/trials_{}_seed_{}.npy'.format (
+            out_dir, n_trials, seed)
+
     print ('-> {}'.format (out_file))
     np.save (out_file, trials.as_array)
+
+
+
 
 @cli.command()
 @pass_state
@@ -1329,6 +1433,22 @@ def collect_bkg_trials_sourcelist( state ):
         bgs.append(bg)
     np.save('{}/ps/correlated_trials/pretrial_bgs.npy'.format(state.base_dir), bgs)
 
+@cli.command()
+@pass_state
+def collect_sig_trials_sourcelist( state ):
+    """
+    Collect all the background trials from do-bkg-trials-sourcelist into one list to feed into
+    the MTR for calculation of pre-trial pvalues.  Unlike do-ps-trials, these are done at the exact
+    declination of each source
+    """
+    sigs = []
+    numsources = 109
+    base_dir = '{}/ps/correlated_trials/poisson/'.format(state.base_dir)
+    for i in range(numsources):
+        s = cy.bk.get_all(base_dir +'source_{}/'.format(i), '*.npy',
+        merge=np.concatenate, post_convert=cy.utils.Arrays)
+        sigs.append(s)
+    np.save('{}/ps/correlated_trials/sourcelist_sig.npy'.format(state.base_dir), sigs)
 
 @cli.command()
 @click.option ('--n-trials', default=10, type=int, help='number of trials to run')
