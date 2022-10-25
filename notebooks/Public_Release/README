@@ -1,0 +1,55 @@
+The contained files are the data release to accounty the manuscript
+'Observation of High-Energy Neutrinos from the Galactic Plane'.
+
+Refer to Publication for further details on how to use these files.
+
+The directory contains for folders:
+
+Main Result
+Fig2
+Fig3
+Fig4
+
+They reproduce the main paper results, and provide digitized versions to remake
+all figures:
+
+All figures have an accomponying Jupyter Notebook to show an example of usage
+All files are saved as .csv whereever possible
+
+Main Result files:
+TBD
+
+Fig2 Files:
+
+Fig2.ipynb  Jupyter Notebook    
+Short script to read in the digitized values and reproduce the paper figure
+
+
+effa_{dataset}_values.csv   [m^2]
+effa_{dataset}_bins.csv     [GeV]
+
+nevents_{dataset}_values.csv    [counts/year]
+nevents_{dataset}_bins.csv      [GeV]
+
+Fig3 Files:
+
+Fig3.ipynb Jupyter Notebook
+Short script to read in the digitized values and produce a full sky TS
+contribution figure
+
+contibution_map_kra5.csv    [TS/sr]
+contibution_map_kra50.csv   [TS/sr]
+contibution_map_pi0.csv     [TS/sr]
+
+NSIDE=64, Equatorial Coordinates
+
+
+Fig4 Files:
+
+Fig4.ipynb Jupyter Notebook
+Short script to read in the digitized values and produce a full sky
+significance plot
+
+ss_nsigmas.csv [Signicance (Nsigma)]
+
+NSIDE=64, Equatorial Coordinates
