@@ -16,40 +16,81 @@ all figures:
 All figures have an accomponying Jupyter Notebook to show an example of usage
 All files are saved as .csv whereever possible
 
+The formating for below is as follows:
+
+Folder:
+    File                            Filetype [units] (if applicable)
+        Description
+
+
 Main Result files:
-TBD
+
+    GPFluxMeasurement.ipynb         Jupyter Notebook
+        A notebook containing all the calculations necessary to convert from the event
+        level data to the paper result, reproducing the best fit signal events, TS,
+        flux and p-value
+
+    event_contributions_gp.csv      csv [various]
+        Event ID [No Units], contribution to spatial LLH [A.U.], 
+        contribution to Energy LLH [A.U.], for each
+        template, and energy [GeV]
+
+    bkg_trials_binning.csv          csv [counts]
+        The bins for the background trials histogram
+
+    effa_bins_{variable}.csv        csv [1/GeV]
+        Effective Area histogram, binned in energy and sindec
+
+    effa_values.csv                 csv [cm^2]
+        The values of the histograms from for the Effective Area
 
 Fig2 Files:
 
-Fig2.ipynb  Jupyter Notebook    
-Short script to read in the digitized values and reproduce the paper figure
+    Fig2.ipynb                      Jupyter Notebook    
+        Short script to read in the digitized values and reproduce the paper figure
 
+    effa_{dataset}_values.csv       csv [m^2]
+        Effective Area values for the southern sky averaged over solid angle in the
+        declination [-90, -5] for each of the three datasets
 
-effa_{dataset}_values.csv   [m^2]
-effa_{dataset}_bins.csv     [GeV]
+    effa_{dataset}_bins.csv         csv [GeV]
+        Effective Area Energy Bins for the sourthern sky effective area
 
-nevents_{dataset}_values.csv    [counts/year]
-nevents_{dataset}_bins.csv      [GeV]
+    nevents_{dataset}_values.csv    csv [counts/year]
+        Number of events as a function of energy in the declination [-90, -5]
+        for each of the three datasets
+    nevents_{dataset}_bins.csv      csv [GeV]
+        Bins for the southern sky number of events for each of the three datasets
 
 Fig3 Files:
 
-Fig3.ipynb Jupyter Notebook
-Short script to read in the digitized values and produce a full sky TS
-contribution figure
+    Fig3.ipynb                      Jupyter Notebook
+        Short script to read in the digitized values and produce a full sky TS
+        contribution figure
 
-contibution_map_kra5.csv    [TS/sr]
-contibution_map_kra50.csv   [TS/sr]
-contibution_map_pi0.csv     [TS/sr]
-
-NSIDE=64, Equatorial Coordinates
+    contibution_map_kra5.csv        csv [TS/sr]
+    contibution_map_kra50.csv       csv [TS/sr]
+    contibution_map_pi0.csv         csv [TS/sr]
+        Healpix binned TS contribution for each template
+        NSIDE=64, Equatorial Coordinates
 
 
 Fig4 Files:
 
-Fig4.ipynb Jupyter Notebook
-Short script to read in the digitized values and produce a full sky
-significance plot
+    Fig4.ipynb                      Jupyter Notebook
+        Short script to read in the digitized values and produce a full sky
+        significance plot
 
-ss_nsigmas.csv [Signicance (Nsigma)]
+    ss_results.csv                  csv [various]
+        File containing all the results for the hotspot analysis for each pixel
+        NSIDE=64, Equatorial Coordinates        
+        pixel: Healpix Pixel Number         [No Units]
+        ra(radians): Right Ascension        [Radians]
+        dec(radians): Declination           [Radians]
+        mlog10p: -log10(p-value)            
+        nsigma: Per pixel Significance      [N-sigma]
+        gamma: spectral index               [No UNits]
+
+
 
 NSIDE=64, Equatorial Coordinates
