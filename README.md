@@ -6,7 +6,7 @@ Analysis wiki: https://wiki.icecube.wisc.edu/index.php/Cascade_Neutrino_Source_D
 Requirements: 
 
 * cvmfs with python 3 `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
-* csky tag v1.1.7
+* csky tag v1.1.12
 * click (any version should work, but ran with version 7.1.2)
 * pandas (any version should work, but ran with version 1.1.1 )
 * numpy (any version should work, but ran with version 1.18.5 [dep. of csky])
@@ -16,7 +16,8 @@ Requirements:
 
 A version of this virtual environment is saved at /data/ana/analyses/NuSources/2021_DNNCasacde_analyses/venv
 
-Generated trials have been saved to `/data/ana/analyses/NuSources/2021_DNNCascade_analyses/baseline_analysis`
+Generated trials have been saved to `/data/ana/analyses/NuSources/2021_DNNCascade_analyses/baseline_analysis`.
+Note that these were generated with csky version v1.1.7 prior to finding the GRL and the two csky bugs that were fixed in PR #87 and release v1.1.12. Checks were performed which indicate that no re-run of background trials is necessary.
 
 File Structure:
 Config.py
