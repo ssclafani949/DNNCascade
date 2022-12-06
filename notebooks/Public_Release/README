@@ -14,7 +14,7 @@ They reproduce the main paper results, and provide digitized versions to remake
 all figures:
 
 All figures have an accomponying Jupyter Notebook to show an example of usage
-All files are saved as .csv whereever possible
+All files are saved as .csv where possible
 
 The formating for below is as follows:
 
@@ -31,18 +31,29 @@ Main Result files:
         flux and p-value
 
     event_contributions_gp.csv      csv [various]
-        Event ID [No Units], contribution to spatial LLH [A.U.], 
-        contribution to Energy LLH [A.U.], for each
-        template, and energy [GeV]
+        Event ID [No Units]
+        contribution to Spatial LLH [S/B A.U.] (for each template)
+        contribution to Energy LLH [S/B A.U.] (for each template)
+        contribution to Spatial Signal Subtracted LLH [S/B A.U.] (for each template)
+        Energy [GeV]
 
-    bkg_trials_binning.csv          csv [counts]
+    bkg_trials_binning.csv          csv [TS values]
         The bins for the background trials histogram
+    
+    bkg_trials_values.csv           csv [counts]
+        The values for the background trials histogram
 
-    effa_bins_{variable}.csv        csv [1/GeV]
-        Effective Area histogram, binned in energy and sindec
-
+    effa_bins_{variable}.csv        csv 
+        Effective Area histogram, binned in energy [1/GeV] and sindec (degs)
+        
     effa_values.csv                 csv [cm^2]
         The values of the histograms from for the Effective Area
+
+    ns_bias_{template}.csv          csv [events]
+        The n_inj and median recovered n_s for each template over the range
+        from 0-800 for kra templates and 0-1800 for pi0 template.  Needed to correct
+        measurements for ns bias present
+        
 
 Fig2 Files:
 
