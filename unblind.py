@@ -446,8 +446,8 @@ def unblind_stacking(state, truth,  bkg_dir, cutoff, seed, logging=True):
     print(seed)
     ana = state.ana
 
-    def get_tr(src, TRUTH):
-        conf = cg.get_ps_conf(src=src, gamma=2.0, cutoff_GeV=np.inf)
+    def get_tr(src, TRUTH, gamma=2.0):
+        conf = cg.get_ps_conf(src=src, gamma=gamma, cutoff_GeV=np.inf)
         tr = cy.get_trial_runner(ana=ana, conf=conf, TRUTH=TRUTH)
         return tr
 
@@ -470,7 +470,8 @@ def unblind_stacking(state, truth,  bkg_dir, cutoff, seed, logging=True):
         trial = tr.get_one_fit(TRUTH=truth,  seed=seed, logging=logging)
         pval = bg.sf(trial[0], fit=False)
         pval_nsigma = bg.sf_nsigma(trial[0], fit=False)
-        trial.append(tr.to_E2dNdE(trial[1], E0=100, unit=1e3))
+        tr_conv = get_tr(src, TRUTH=truth, gamma=trial[2])
+        trial.append(tr_conv.to_E2dNdE(trial[1], E0=100, unit=1e3))
         trial.append(pval)
         trial.append(pval_nsigma)
         print(trial)
