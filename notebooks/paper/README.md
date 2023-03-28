@@ -23,8 +23,8 @@ mesc_comparison_num_events2d_energy_radius(S3): notebooks/event_selection/Recons
 coverage_energy_BFRv1.pdf (S7 a):               notebooks/event_selection/ReconstructionResolution.ipynb
 coverage_energy_SnowStorm.pdf (S7 b):           notebooks/event_selection/ReconstructionResolution.ipynb
 
-DNNCascadeSciencePaper_Event01_v02.png: (S4 b)  Steamshovel (events from top 20 pi0 + dnn_cascade_science_paper.py config)
-DNNCascadeSciencePaper_Event02_v02.png: (S4 a)  Steamshovel (events from top 20 pi0 + dnn_cascade_science_paper.py config)
+DNNCascadeSciencePaper_Event01_v02.png: (S4 b)  Steamshovel (events from top 20 pi0 + dnn_cascade_science_paper_v2_2023_03_28.py config)
+DNNCascadeSciencePaper_Event02_v02.png: (S4 a)  Steamshovel (events from top 20 pi0 + dnn_cascade_science_paper_v2_2023_03_28.py config)
 
 
 
