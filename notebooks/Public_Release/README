@@ -3,7 +3,7 @@ The contained files are the data release to accounty the manuscript
 
 Refer to Publication for further details on how to use these files.
 
-The directory contains for folders:
+The directory contains the following folders:
 
 Main Result
 Fig2
@@ -28,7 +28,8 @@ Main Result files:
     GPFluxMeasurement.ipynb         Jupyter Notebook
         A notebook containing all the calculations necessary to convert from the event
         level data to the paper result, reproducing the best fit signal events, TS,
-        flux and p-value
+        flux and p-value. Also reproduces distribution of event vertices as a function
+        of energy and distance to the detector boundary (Figure S3).
 
     event_contributions_gp.csv      csv [various]
         Event ID [No Units]
@@ -36,6 +37,7 @@ Main Result files:
         contribution to Energy LLH [S/B A.U.] (for each template)
         contribution to Spatial Signal Subtracted LLH [S/B A.U.] (for each template)
         Energy [GeV]
+        Distance of event vertex to convex hull around IceCube [m]
 
     bkg_trials_binning.csv          csv [TS values]
         The bins for the background trials histogram
