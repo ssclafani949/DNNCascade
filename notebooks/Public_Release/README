@@ -3,17 +3,16 @@ The contained files are the data release to accounty the manuscript
 
 Refer to Publication for further details on how to use these files.
 
-The directory contains for folders:
+The directory contains the following folders:
 
 Main Result (Fig1)
 Fig2
 Fig3
 Fig4
-
+FigS9
+ReconstructionResolution
 FigS1
 FigS2
-FigS9
-ReconstructionResolution (Figs. S5, S6, S7)
 FigS12
 
 
@@ -35,7 +34,8 @@ Main Result files:
     GPFluxMeasurement.ipynb         Jupyter Notebook
         A notebook containing all the calculations necessary to convert from the event
         level data to the paper result, reproducing the best fit signal events, TS,
-        flux and p-value
+        flux and p-value. Also reproduces distribution of event vertices as a function
+        of energy and distance to the detector boundary (Figure S3).
 
     event_contributions_gp.csv      csv [various]
         Event ID [No Units]
@@ -43,6 +43,7 @@ Main Result files:
         contribution to Energy LLH [S/B A.U.] (for each template)
         contribution to Spatial Signal Subtracted LLH [S/B A.U.] (for each template)
         Energy [GeV]
+        Distance of event vertex to convex hull around IceCube [m]
 
     bkg_trials_binning.csv          csv [TS values]
         The bins for the background trials histogram
@@ -109,65 +110,66 @@ Fig4 Files:
         nsigma: Per pixel Significance      [N-sigma]
         gamma: spectral index               [No Units]
 
+FigS9 Files:
+    FigS9.ipynb                      Jupyter Notebook
+        Short script to read in and plot the acceptance corrected (and smeared)
+        Galactic plane analysis templates.
+
+    templates.csv                   csv [1/sr]
+        Healpix binned analysis templates for each of
+        the Galactic plane models. The templates are acceptance
+        corrected and additionally smeared with 7° or 15°.
+        A total of 9 templates are included.
+        NSIDE=64, Equatorial Coordinates
 
 
+ReconstructionResolution files:
 
+    ReconstructionResolution.ipynb         Jupyter Notebook
+        A notebook that reads in the data and creates example plots
+        corresponding to the Figures S6, S7, and S8.
 
+    angular_resolution.csv      csv [various]
+        energy:                            [GeV]
+            The neutrino energy at which the following quantiles
+            of the distribution of opening angles are evaluated.
+        this_work_{20/50/80}p:             [degree]
+            20%/50%/80% quantile of openining distribution
+            for all events of this work.
+        this_work_contained_{20/50/80}p:   [degree]
+            20%/50%/80% quantile of openining distribution
+            for contained events of this work.
+        prev_work_{20/50/80}p:             [degree]
+            20%/50%/80% quantile of opening distribution
+            for the previous cascade analysis
 
+    coverage.csv                csv [no units (fractions)]
+        quantiles:                  [no units]
+            The fractions at which the coverage is evaluated.
+        cov_base_{1/10/500}TeV      [no units]
+            The coverage evaluated on the baseline simulation
+            set at 1 TeV / 10 TeV / 500 TeV.
+        cov_sys_{1/10/500}TeV       [no units]
+            The coverage evaluted on the simulation set with
+            varied systematic parameters at energies of
+            1 TeV / 10 TeV / 500 TeV.
 
+    EnergyResS6{a/b}_hist.csv            csv [no units]
+        The values for the column-normalized histogram of reconstructed
+        versus true neutrino/deposited energy.
+    
+    EnergyResS6{a/b}_{x/y}_edges.csv     csv [GeV]
+        The histogram bin edges along the x/y axis.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    EnergyResS6{a/b}_resolution.csv      csv [various]
+        Contains a data table that describes the reconstruction
+        resolution for the neutrino/deoposited energy.
+        Columns include:
+        
+        energies:                            [GeV]
+            The energies at which the resolution is evaluated.
+        resolution:
+            The resolution evaluated at each of the energies.
 
 
 FigS1 Files:
@@ -198,15 +200,6 @@ FigS2 Files:
             The 1sigma uncertainty in the data and sim_tot.  These are used to
             construct the error bars
 
-FigS9 Files:
-    FigS9.ipynb                     Jupyter Notebook
-        Short script to reproduce the template with acceptance corrected and
-        resolution smearing  
-    
-    templates.csv                   csv [1/sr]
-        healpy binned per pixel weight in equatorial coordinates for each
-        template with 0, 7, and 15 degree gaussian smearing applied
-
 Fig S12 Files:
     FigS12.ipynb
         Short script to reproduce the sensitvity, 4sigma discovery potential
@@ -230,4 +223,3 @@ Fig S12 Files:
             E^3 Upper Limits
         sindec
             Source sindec value
-
