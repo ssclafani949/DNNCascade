@@ -5,10 +5,17 @@ Refer to Publication for further details on how to use these files.
 
 The directory contains for folders:
 
-Main Result
+Main Result (Fig1)
 Fig2
 Fig3
 Fig4
+
+FigS1
+FigS2
+FigS9
+ReconstructionResolution (Figs. S5, S6, S7)
+FigS12
+
 
 They reproduce the main paper results, and provide digitized versions to remake
 all figures:
@@ -100,8 +107,67 @@ Fig4 Files:
         dec(radians): Declination           [Radians]
         mlog10p: -log10(p-value)            
         nsigma: Per pixel Significance      [N-sigma]
-        gamma: spectral index               [No UNits]
+        gamma: spectral index               [No Units]
 
 
+FigS1 Files:
+    
+    FigS1.ipynb                     Jupyter Notebook
+        Short script to read in the digitized values and produce a histogram of
+        expected events
 
-NSIDE=64, Equatorial Coordinates
+    {type}_{flavor}_values.csv      csv [Counts]
+        File containing the number of expected events for types (astro or atmo) and flavor 
+        (nue, numu, nutau) as well as the values for the sum of all flavors
+        (tot)
+        
+    {type}_{flavor}_bins.csv        csv [Energy GeV]
+       File containing the bin edges for the data   [E_nu GeV]
+
+FigS2 Files:
+    FigS2.ipynb                     Jupyter Notebook
+        Short script to reproduce the angular uncertainty and sindec Data/MC
+        ratio
+    angerr_plot
+        {type}_values.csv           csv [Counts]
+            File containing the number of expected events per types (astro_nu,
+            atmo_nu, data, mu, sim_tot)
+        {type}_bins.csv             csv [sin(angular Uncertainty) degrees]
+            File containing the bin edges for each of the above values
+        {type}_errors.csv           csv
+            The 1sigma uncertainty in the data and sim_tot.  These are used to
+            construct the error bars
+
+FigS9 Files:
+    FigS9.ipynb                     Jupyter Notebook
+        Short script to reproduce the template with acceptance corrected and
+        resolution smearing  
+    
+    templates.csv                   csv [1/sr]
+        healpy binned per pixel weight in equatorial coordinates for each
+        template with 0, 7, and 15 degree gaussian smearing applied
+
+Fig S12 Files:
+    FigS12.ipynb
+        Short script to reproduce the sensitvity, 4sigma discovery potential
+        and Upper Limits from figure S12
+    E{Spectrum}_sindec.csv          
+        The sin(declination) values to plot for sensitvity.  Spectra are E2 or
+        E3 corresponding to E^-2 or E^-3 sensitivity 
+    E{Spectrum}_sindec_dp.csv           
+        The sin(declination) values to plot for discovery potentials, Spectra
+        are E2 or E3 corresponding to E^-2 or E^-3 sensitivity.
+    Sensitvity_E{Spectrum}.csv          flux [E^2 dN/dE at 100TeV TeV/s/cm^2]
+        The sensitvity values to plot.  Number of points aligns with sindec.
+    DP_4sigma_E{Spectrum}.csv           flux [E^2 dN/dE at 100TeV TeV/s/cm^2]
+        The 4sigma discovery values to plot.  Number of points aligns with
+        sindec_dp..
+    source_list_ULS.csv
+        The flux ULS for each plot
+        E2_UL                           [Flux E^2 dN/dE at 100TeV TeV/s/cm^2]
+            E^2 Upper Limits
+        E3_UL                           [Flux E^2 dN/dE at 100TeV TeV/s/cm^2]
+            E^3 Upper Limits
+        sindec
+            Source sindec value
+
